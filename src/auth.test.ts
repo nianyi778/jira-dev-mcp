@@ -107,14 +107,11 @@ describe('auth', () => {
       expect(result.note).toBe('Super Admin');
     });
 
-    it('should authenticate with valid KV token via Bearer', async () => {
-      const tokenData: TokenData = {
-        note: 'Test Token',
-        createdAt: new Date().toISOString(),
-        expiresAt: null,
-        lastUsedAt: null,
-      };
-      await env.REPORT_KV.put('token:111111', JSON.stringify(tokenData));
+    it('should authenticate with valid token via Bearer', async () => {
+      const nowMs = Date.now();
+      await env.TOKEN_DB.prepare(
+        'INSERT INTO tokens (token, note, created_at, expires_at, last_used_at, is_disabled) VALUES (?, ?, ?, ?, ?, 0)'
+      ).bind('111111', 'Test Token', nowMs, null, null).run();
 
       const request = new Request('https://example.com', {
         headers: { Authorization: 'Bearer 111111' },
@@ -129,13 +126,10 @@ describe('auth', () => {
     });
 
     it('should reject expired token', async () => {
-      const tokenData: TokenData = {
-        note: 'Expired Token',
-        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-        expiresAt: new Date(Date.now() - 86400000).toISOString(), // Expired yesterday
-        lastUsedAt: null,
-      };
-      await env.REPORT_KV.put('token:222222', JSON.stringify(tokenData));
+      const nowMs = Date.now();
+      await env.TOKEN_DB.prepare(
+        'INSERT INTO tokens (token, note, created_at, expires_at, last_used_at, is_disabled) VALUES (?, ?, ?, ?, ?, 0)'
+      ).bind('222222', 'Expired Token', nowMs - 86400000 * 2, nowMs - 86400000, null).run();
 
       const request = new Request('https://example.com', {
         headers: { Authorization: 'Bearer 222222' },
@@ -159,13 +153,10 @@ describe('auth', () => {
     });
 
     it('should authenticate via session cookie', async () => {
-      const tokenData: TokenData = {
-        note: 'Session Token',
-        createdAt: new Date().toISOString(),
-        expiresAt: null,
-        lastUsedAt: null,
-      };
-      await env.REPORT_KV.put('token:333333', JSON.stringify(tokenData));
+      const nowMs = Date.now();
+      await env.TOKEN_DB.prepare(
+        'INSERT INTO tokens (token, note, created_at, expires_at, last_used_at, is_disabled) VALUES (?, ?, ?, ?, ?, 0)'
+      ).bind('333333', 'Session Token', nowMs, null, null).run();
 
       const request = new Request('https://example.com', {
         headers: { Cookie: 'jira_monitor_session=333333' },
@@ -178,13 +169,10 @@ describe('auth', () => {
     });
 
     it('should prefer Bearer token over session cookie', async () => {
-      const tokenData: TokenData = {
-        note: 'Cookie Token',
-        createdAt: new Date().toISOString(),
-        expiresAt: null,
-        lastUsedAt: null,
-      };
-      await env.REPORT_KV.put('token:444444', JSON.stringify(tokenData));
+      const nowMs = Date.now();
+      await env.TOKEN_DB.prepare(
+        'INSERT INTO tokens (token, note, created_at, expires_at, last_used_at, is_disabled) VALUES (?, ?, ?, ?, ?, 0)'
+      ).bind('444444', 'Cookie Token', nowMs, null, null).run();
 
       const request = new Request('https://example.com', {
         headers: {
@@ -209,14 +197,11 @@ describe('auth', () => {
       expect(result.error).toBe('Missing authentication');
     });
 
-    it('should update lastUsedAt on successful KV token auth', async () => {
-      const tokenData: TokenData = {
-        note: 'Test Token',
-        createdAt: new Date().toISOString(),
-        expiresAt: null,
-        lastUsedAt: null,
-      };
-      await env.REPORT_KV.put('token:555555', JSON.stringify(tokenData));
+    it('should update lastUsedAt on successful token auth', async () => {
+      const nowMs = Date.now();
+      await env.TOKEN_DB.prepare(
+        'INSERT INTO tokens (token, note, created_at, expires_at, last_used_at, is_disabled) VALUES (?, ?, ?, ?, ?, 0)'
+      ).bind('555555', 'Test Token', nowMs, null, null).run();
 
       const request = new Request('https://example.com', {
         headers: { Authorization: 'Bearer 555555' },
@@ -224,8 +209,10 @@ describe('auth', () => {
       
       await authenticate(request, env);
       
-      const updatedData = await env.REPORT_KV.get<TokenData>('token:555555', 'json');
-      expect(updatedData?.lastUsedAt).not.toBeNull();
+      const updatedRow = await env.TOKEN_DB.prepare(
+        'SELECT token, note, created_at, expires_at, last_used_at, is_disabled FROM tokens WHERE token = ? LIMIT 1'
+      ).bind('555555').first<any>();
+      expect(updatedRow?.last_used_at).not.toBeNull();
     });
   });
 
@@ -351,10 +338,12 @@ describe('auth', () => {
       expect(Math.abs(expiresAt.getTime() - expectedExpiry.getTime())).toBeLessThan(60000);
     });
 
-    it('should store token in KV', async () => {
+    it('should store token in D1', async () => {
       const { token } = await createToken('Stored Token', env);
       
-      const stored = await env.REPORT_KV.get(`token:${token}`);
+      const stored = await env.TOKEN_DB.prepare(
+        'SELECT token, note, created_at, expires_at, last_used_at, is_disabled FROM tokens WHERE token = ? LIMIT 1'
+      ).bind(token).first<any>();
       expect(stored).not.toBeNull();
     });
   });
@@ -366,19 +355,19 @@ describe('auth', () => {
       env = createMockEnv();
     });
 
-    it('should delete existing token', async () => {
-      const tokenData: TokenData = {
-        note: 'To Delete',
-        createdAt: new Date().toISOString(),
-        expiresAt: null,
-        lastUsedAt: null,
-      };
-      await env.REPORT_KV.put('token:666666', JSON.stringify(tokenData));
+    it('should disable existing token', async () => {
+      const nowMs = Date.now();
+      await env.TOKEN_DB.prepare(
+        'INSERT INTO tokens (token, note, created_at, expires_at, last_used_at, is_disabled) VALUES (?, ?, ?, ?, ?, 0)'
+      ).bind('666666', 'To Disable', nowMs, null, null).run();
       
       const result = await deleteToken('666666', env);
       
       expect(result).toBe(true);
-      expect(await env.REPORT_KV.get('token:666666')).toBeNull();
+      const row = await env.TOKEN_DB.prepare(
+        'SELECT token, note, created_at, expires_at, last_used_at, is_disabled FROM tokens WHERE token = ? LIMIT 1'
+      ).bind('666666').first<any>();
+      expect(row?.is_disabled).toBe(1);
     });
 
     it('should return false for non-existent token', async () => {
@@ -396,21 +385,13 @@ describe('auth', () => {
     });
 
     it('should list all tokens', async () => {
-      const token1: TokenData = {
-        note: 'Token 1',
-        createdAt: new Date().toISOString(),
-        expiresAt: null,
-        lastUsedAt: null,
-      };
-      const token2: TokenData = {
-        note: 'Token 2',
-        createdAt: new Date().toISOString(),
-        expiresAt: null,
-        lastUsedAt: null,
-      };
-      
-      await env.REPORT_KV.put('token:111111', JSON.stringify(token1));
-      await env.REPORT_KV.put('token:222222', JSON.stringify(token2));
+      const nowMs = Date.now();
+      await env.TOKEN_DB.prepare(
+        'INSERT INTO tokens (token, note, created_at, expires_at, last_used_at, is_disabled) VALUES (?, ?, ?, ?, ?, 0)'
+      ).bind('111111', 'Token 1', nowMs, null, null).run();
+      await env.TOKEN_DB.prepare(
+        'INSERT INTO tokens (token, note, created_at, expires_at, last_used_at, is_disabled) VALUES (?, ?, ?, ?, ?, 0)'
+      ).bind('222222', 'Token 2', nowMs + 1, null, null).run();
       
       const tokens = await listTokens(env);
       
@@ -433,10 +414,10 @@ describe('auth', () => {
     });
 
     it('should return logs for specific date', async () => {
-      const logs = [
-        { token: '123456', note: 'Test', endpoint: '/api', method: 'GET', ip: '1.2.3.4', timestamp: '2024-01-15T10:00:00Z' },
-      ];
-      await env.REPORT_KV.put('log:2024-01-15', JSON.stringify(logs));
+      const timestamp = new Date('2024-01-15T10:00:00Z').getTime();
+      await env.TOKEN_DB.prepare(
+        'INSERT INTO token_logs (token, note, endpoint, method, ip, timestamp) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind('123456', 'Test', '/api', 'GET', '1.2.3.4', timestamp).run();
       
       const result = await getLogs('2024-01-15', env);
       
@@ -460,10 +441,9 @@ describe('auth', () => {
 
     it('should return logs for recent days', async () => {
       const today = new Date().toISOString().split('T')[0];
-      const logs = [
-        { token: '123456', note: 'Test', endpoint: '/api', method: 'GET', ip: '1.2.3.4', timestamp: new Date().toISOString() },
-      ];
-      await env.REPORT_KV.put(`log:${today}`, JSON.stringify(logs));
+      await env.TOKEN_DB.prepare(
+        'INSERT INTO token_logs (token, note, endpoint, method, ip, timestamp) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind('123456', 'Test', '/api', 'GET', '1.2.3.4', Date.now()).run();
       
       const result = await getRecentLogs(7, env);
       

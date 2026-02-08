@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "test:unit": "vitest run --dir src",
     "test:integration": "vitest run --dir test/integration",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "prepare": "husky install"
   },
   "keywords": [
     "jira",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240117.0",
     "@vitest/coverage-v8": "^4.0.18",
+    "husky": "^9.1.7",
     "miniflare": "^3.20250718.3",
     "typescript": "^5.3.3",
     "vitest": "^4.0.18",
