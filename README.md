@@ -1,8 +1,8 @@
 # Jira Subtask Monitor
 
-![Test](https://github.com/OWNER/REPO/actions/workflows/test.yml/badge.svg)
-![Deploy](https://github.com/OWNER/REPO/actions/workflows/deploy.yml/badge.svg)
-![License](https://img.shields.io/badge/license-ISC-blue.svg)
+[![Test](https://github.com/nianyi778/jira-monitor/actions/workflows/test.yml/badge.svg)](https://github.com/nianyi778/jira-monitor/actions/workflows/test.yml)
+[![Deploy](https://github.com/nianyi778/jira-monitor/actions/workflows/deploy.yml/badge.svg)](https://github.com/nianyi778/jira-monitor/actions/workflows/deploy.yml)
+[![License](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
 
 Cloudflare Worker that monitors Jira subtasks and sends daily reports with a review flow.
 Built for small teams that want lightweight status reporting without maintaining servers.

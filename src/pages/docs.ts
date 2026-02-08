@@ -26,7 +26,7 @@ export interface ApiModule {
 /**
  * Define all API modules and endpoints
  */
-export function getApiModules(baseUrl: string): ApiModule[] {
+export function getApiModules(baseUrl: string, supportEmail?: string): ApiModule[] {
   return [
     {
       name: '系统状态',
@@ -104,7 +104,7 @@ export function getApiModules(baseUrl: string): ApiModule[] {
           responseJson: {
             success: true,
             message: 'Report generated and internal notification sent',
-            reviewUrl: 'https://your-domain.example.com/review/abc123-def456',
+            reviewUrl: `${baseUrl}/review/abc123-def456`,
             date: '2024年2月8日',
             totalCompleted: 5,
             parentTasks: ['AT-878']
@@ -135,8 +135,8 @@ export function getApiModules(baseUrl: string): ApiModule[] {
           responseJson: {
             success: true,
             message: 'Test email sent successfully',
-            sentTo: 'admin@example.com',
-            reviewUrl: 'https://your-domain.example.com/review/test-token-123'
+            sentTo: supportEmail || 'admin@example.com',
+            reviewUrl: `${baseUrl}/review/test-token-123`
           },
           example: `curl ${baseUrl}/test/email`,
           auth: 'bearer',
@@ -361,8 +361,8 @@ function formatJsonHtml(obj: object): string {
 /**
  * Generate the API documentation HTML page
  */
-export function generateDocsPage(baseUrl: string): string {
-  const modules = getApiModules(baseUrl);
+export function generateDocsPage(baseUrl: string, brandName?: string, brandUrl?: string, supportEmail?: string): string {
+  const modules = getApiModules(baseUrl, supportEmail);
 
   const modulesSidebar = modules
     .map(
@@ -1468,7 +1468,7 @@ export function generateDocsPage(baseUrl: string): string {
       ${modulesContent}
       
       <div class="footer">
-        <p>Built with Cloudflare Workers</p>
+        <p>Built with Cloudflare Workers${brandName && brandUrl ? ` · <a href="${brandUrl}" target="_blank">${brandName}</a>` : ''}</p>
       </div>
     </main>
   </div>

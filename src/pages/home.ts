@@ -4,7 +4,7 @@
  * 2. API Documentation - View API docs
  */
 
-export function generateHomePage(baseUrl: string): string {
+export function generateHomePage(baseUrl: string, brandName?: string, brandUrl?: string): string {
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -806,7 +806,7 @@ export function generateHomePage(baseUrl: string): string {
     </section>
     
     <footer class="footer">
-        <p>Powered by <a href="https://workers.cloudflare.com" target="_blank">Cloudflare Workers</a></p>
+        <p>Powered by <a href="https://workers.cloudflare.com" target="_blank">Cloudflare Workers</a>${brandName && brandUrl ? ` · <a href="${brandUrl}" target="_blank">${brandName}</a>` : ''}</p>
     </footer>
   </div>
   <script>

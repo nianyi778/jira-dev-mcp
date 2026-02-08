@@ -102,13 +102,13 @@ export default {
 
     // Home page - entry point with two sections
     if (pathname === '/') {
-      const html = generateHomePage(env.WORKER_BASE_URL);
+      const html = generateHomePage(env.WORKER_BASE_URL, env.BRAND_NAME, env.BRAND_URL);
       return htmlResponse(html);
     }
 
     // API Documentation page (HTML)
     if (pathname === '/docs') {
-      const html = generateDocsPage(env.WORKER_BASE_URL);
+      const html = generateDocsPage(env.WORKER_BASE_URL, env.BRAND_NAME, env.BRAND_URL, env.SUPPORT_EMAIL);
       return htmlResponse(html);
     }
 
@@ -161,7 +161,8 @@ export default {
       const redirect = url.searchParams.get('redirect');
       const html = generateLoginPage(env.WORKER_BASE_URL, { 
         error: error || undefined, 
-        redirect: redirect || undefined 
+        redirect: redirect || undefined,
+        supportEmail: env.SUPPORT_EMAIL,
       });
       return htmlResponse(html);
     }

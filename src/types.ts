@@ -5,6 +5,9 @@ export interface Env {
   TIMEZONE: string;
   WORKER_BASE_URL: string; // Base URL for review links (e.g., "https://your-domain.example.com")
   SUPER_ADMIN_TOKEN: string; // Super admin 6-digit token
+  BRAND_NAME?: string;
+  BRAND_URL?: string;
+  SUPPORT_EMAIL?: string;
 
   // Secrets (set via wrangler secret put)
   JIRA_EMAIL: string;

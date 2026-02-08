@@ -6,6 +6,7 @@
 export interface LoginPageOptions {
   error?: string;
   redirect?: string;
+  supportEmail?: string;
 }
 
 export function generateLoginPage(baseUrl: string, options: LoginPageOptions = {}): string {
@@ -445,7 +446,7 @@ export function generateLoginPage(baseUrl: string, options: LoginPageOptions = {
     </form>
     
     <div class="login-footer">
-      <p>没有授权码？请联系管理员</p>
+      <p>没有授权码？请联系${options.supportEmail ? '<a href="mailto:' + options.supportEmail + '">管理员</a>' : '管理员'}</p>
     </div>
   </div>
   

@@ -1,11 +1,11 @@
 name = "jira-subtask-monitor"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
-account_id = "YOUR_CLOUDFLARE_ACCOUNT_ID"
+account_id = "1912da8e7507f50d6d20ef3dc1f10c0d"
 
 # Custom domain (requires DNS setup in Cloudflare)
 routes = [
-  { pattern = "your-domain.example.com", custom_domain = true }
+  { pattern = "jira-monitor.nianyi.dpdns.org", custom_domain = true }
 ]
 
 # Cron Triggers (Monday to Friday)
@@ -17,20 +17,27 @@ crons = ["0 11 * * 1-5", "30 9 * * 1-5"]
 # KV namespace for storing reports, config, tokens, and logs
 [[kv_namespaces]]
 binding = "REPORT_KV"
-id = "YOUR_KV_NAMESPACE_ID"
+id = "0028eead933f4a9fa93d0d9065b4195c"
 
 # D1 database for tokens and logs
 [[d1_databases]]
 binding = "TOKEN_DB"
 database_name = "jira_monitor_DB"
-database_id = "YOUR_D1_DATABASE_ID"
+database_id = "ef744be3-c2ff-446d-b0e5-209ca4e5d4ce"
+
+[dev]
+port = 8787
 
 # Environment variables (static, non-sensitive)
 [vars]
-JIRA_BASE_URL = "https://your-domain.atlassian.net"
+JIRA_BASE_URL = "https://elestyle.atlassian.net"
 TIMEZONE = "Asia/Tokyo"
-WORKER_BASE_URL = "https://your-domain.example.com"
-SUPER_ADMIN_TOKEN = "CHANGE_ME"  # Super admin 6-digit token
+WORKER_BASE_URL = "https://jira-monitor.nianyi.dpdns.org"
+SUPER_ADMIN_TOKEN = "888888"  # Super admin 6-digit token
+
+BRAND_NAME = "ELESTYLE Inc."
+BRAND_URL = "https://elestyle.jp"
+SUPPORT_EMAIL = "kai.li@elestyle.jp"
 
 # For local development, create .dev.vars file with secrets
 # For production, set secrets via: wrangler secret put <SECRET_NAME>
