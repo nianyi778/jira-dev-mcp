@@ -1,0 +1,32 @@
+{
+  "name": "jira-subtask-monitor",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker to monitor Jira subtask completion and send daily email reports",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test:scheduled": "wrangler dev --test-scheduled",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run --dir src",
+    "test:integration": "vitest run --dir test/integration",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "jira",
+    "cloudflare-workers",
+    "email",
+    "monitoring"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240117.0",
+    "@vitest/coverage-v8": "^4.0.18",
+    "miniflare": "^3.20250718.3",
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.18",
+    "wrangler": "^3.24.0"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "jira-subtask-monitor",
+  "image": "node:20-slim",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
+  },
+  "postCreateCommand": "corepack enable && pnpm install",
+  "forwardPorts": [8787],
+  "portsAttributes": {
+    "8787": {
+      "label": "Wrangler Dev"
+    }
+  }
+}

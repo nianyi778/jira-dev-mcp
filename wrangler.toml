@@ -1,0 +1,54 @@
+name = "jira-subtask-monitor"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+account_id = "YOUR_CLOUDFLARE_ACCOUNT_ID"
+
+# Custom domain (requires DNS setup in Cloudflare)
+routes = [
+  { pattern = "your-domain.example.com", custom_domain = true }
+]
+
+# Cron Triggers (Monday to Friday)
+# UTC 11:00 = JST 20:00 - Daily completed tasks email report
+# UTC 09:30 = JST 18:30 - Slack incomplete tasks reminder
+[triggers]
+crons = ["0 11 * * 1-5", "30 9 * * 1-5"]
+
+# KV namespace for storing reports, config, tokens, and logs
+[[kv_namespaces]]
+binding = "REPORT_KV"
+id = "YOUR_KV_NAMESPACE_ID"
+
+# D1 database for tokens and logs
+[[d1_databases]]
+binding = "TOKEN_DB"
+database_name = "jira_monitor_DB"
+database_id = "YOUR_D1_DATABASE_ID"
+
+# Environment variables (static, non-sensitive)
+[vars]
+JIRA_BASE_URL = "https://your-domain.atlassian.net"
+TIMEZONE = "Asia/Tokyo"
+WORKER_BASE_URL = "https://your-domain.example.com"
+SUPER_ADMIN_TOKEN = "CHANGE_ME"  # Super admin 6-digit token
+
+# For local development, create .dev.vars file with secrets
+# For production, set secrets via: wrangler secret put <SECRET_NAME>
+# Required secrets:
+#   JIRA_EMAIL - Jira account email
+#   JIRA_API_TOKEN - Jira API token
+#   RESEND_API_KEY - Resend API key
+#   RESEND_FROM_EMAIL - Sender email (e.g., "Name <email@domain.com>")
+#   SLACK_WEBHOOK_URL - Slack incoming webhook URL
+
+# Configuration stored in KV (key prefix: config:)
+# Set via admin API or wrangler kv:key put:
+#   config:parent_issues        - Comma-separated parent issue keys (e.g., "AT-878,AT-900")
+#   config:dry_run              - "true" or "false" (default: false)
+#   config:email:internal       - Internal notification email
+#   config:email:default_client - Default client email
+#   config:email:default_cc     - Default CC emails
+#   config:review_token_ttl     - Token TTL in seconds (default: 86400)
+#   config:feature:email_report - "true" or "false" (default: true)
+#   config:feature:slack_reminder - "true" or "false" (default: true)
+#   config:slack:channel_name   - Slack channel name for display
