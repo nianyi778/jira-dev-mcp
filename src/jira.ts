@@ -7,6 +7,7 @@ import type {
   IncompleteSubtask,
   IncompleteTasksReport,
 } from './types';
+import { translateToJapanese } from './translate';
 
 /**
  * Create Basic Auth header for Jira API
@@ -136,13 +137,13 @@ function isDoneStatus(statusName: string): boolean {
 }
 
 /**
- * Find subtasks that were completed (status changed to Done) today
- * AND are still in Done status (not reverted)
+ * Find subtasks that were completed today
+ * Translates Chinese summaries to Japanese
  */
-function findTodayCompletedSubtasks(
+async function findTodayCompletedSubtasks(
   subtasks: JiraIssue[],
   timezone: string
-): CompletedSubtask[] {
+): Promise<CompletedSubtask[]> {
   const completed: CompletedSubtask[] = [];
 
   for (const subtask of subtasks) {
@@ -183,9 +184,13 @@ function findTodayCompletedSubtasks(
 
     // Only add if we found a Done transition today
     if (completedAt) {
+      // Translate Chinese summary to Japanese
+      const originalSummary = subtask.fields?.summary || 'Unknown';
+      const translatedSummary = await translateToJapanese(originalSummary);
+      
       completed.push({
         key: subtask.key,
-        summary: subtask.fields?.summary || 'Unknown',
+        summary: translatedSummary,
         assignee: subtask.fields?.assignee?.displayName || '未割り当て',
         completedAt: formatDateJapanese(completedAt, timezone),
         completedAtDate: completedAt,
@@ -241,8 +246,8 @@ export async function generateParentTaskReport(
 
   console.log(`Found ${subtasks.length} subtasks for ${parentKey}`);
 
-  // Find today's completed subtasks
-  const completedToday = findTodayCompletedSubtasks(subtasks, env.TIMEZONE);
+  // Find today's completed subtasks (with translation)
+  const completedToday = await findTodayCompletedSubtasks(subtasks, env.TIMEZONE);
   console.log(
     `Found ${completedToday.length} subtasks completed today for ${parentKey}`
   );
@@ -266,15 +271,22 @@ export async function generateParentTaskReport(
 }
 
 /**
- * Get today's date formatted in Japanese
+ * Get today's date formatted in Japanese with zero-padding
+ * Format: 2026年02月09日
  */
 export function getTodayDateJapanese(timezone: string): string {
-  return new Intl.DateTimeFormat('ja-JP', {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('ja-JP', {
     timeZone: timezone,
     year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  }).format(new Date());
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter.formatToParts(now);
+  const year = parts.find(p => p.type === 'year')?.value || '';
+  const month = parts.find(p => p.type === 'month')?.value || '';
+  const day = parts.find(p => p.type === 'day')?.value || '';
+  return `${year}年${month}月${day}日`;
 }
 
 /**

@@ -2,64 +2,55 @@ import type { DailyReport, ParentTaskReport, StoredReport } from './types';
 
 /**
  * Generate email subject line in Japanese
+ * Format: 2026/02/09 - 不具合releaseレポート
  */
 export function generateSubject(report: DailyReport): string {
-  const parentKeys = report.reports.map((r) => r.parentKey).join(', ');
-  return `【Jira進捗報告】${parentKeys} サブタスク完了レポート - ${report.date}`;
-}
-
-/**
- * Generate a single parent task section
- */
-function generateParentSection(report: ParentTaskReport): string {
-  const separator = '━'.repeat(50);
-  const remaining = report.totalSubtasks - report.completedSubtasks;
-
-  let section = `
-${separator}
-【${report.parentKey}】${report.parentSummary}
-${separator}
-
-`;
-
-  for (const task of report.completedToday) {
-    section += `✅ ${task.key} - ${task.summary}
-   担当者：${task.assignee}
-   完了時刻：${task.completedAt}
-
-`;
-  }
-
-  section += `${separator}
-
-📊 本日完了: ${report.completedToday.length} 件
-📋 残り: ${remaining} 件
-📈 全体進捗: ${report.progressPercent}%
-`;
-
-  return section;
+  // Convert "2026年02月09日" to "2026/02/09"
+  const dateSlash = report.date.replace(/年|月/g, '/').replace(/日/, '');
+  return `${dateSlash} - 不具合releaseレポート`;
 }
 
 /**
  * Generate full email body in Japanese (plain text)
  */
-export function generateEmailBody(report: DailyReport): string {
-  let body = `お疲れ様です。
-
-本日（${report.date}）完了したサブタスクをご報告いたします。
-`;
-
+export function generateEmailBody(report: DailyReport, releaseTime?: string): string {
+  const separator = '━'.repeat(40);
+  
+  // Collect all completed tasks from all parent reports
+  let taskList = '';
+  let totalCompleted = 0;
+  
   for (const parentReport of report.reports) {
-    body += generateParentSection(parentReport);
+    for (const task of parentReport.completedToday) {
+      taskList += `  ✅ ${task.key} - ${task.summary}\n`;
+    }
+    totalCompleted += parentReport.completedToday.length;
   }
 
-  body += `
-${'━'.repeat(50)}
+  // Use provided releaseTime or generate current time (format: 2026/02/09 18:23)
+  const releaseTimeStr = releaseTime || new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date());
 
-※ このメールは自動送信されています。返信はご遠慮ください。
+  // Convert "2026年02月09日" to "2026/02/09"
+  const dateSlash = report.date.replace(/年|月/g, '/').replace(/日/, '');
+
+  return `お疲れ様です。
+
+${dateSlash} - 不具合releaseレポート
+
+${taskList}
+  📊 本日完了: ${totalCompleted} 件
+  🚀 release時刻: ${releaseTimeStr}
+
+${separator}
+※ このメールは自動送信されています。
 `;
-
-  return body;
 }
 
 /**
@@ -204,8 +195,6 @@ export function generateEmailBodyHtml(report: DailyReport): string {
 `;
 
   for (const parentReport of report.reports) {
-    const remaining = parentReport.totalSubtasks - parentReport.completedSubtasks;
-
     html += `
     <div class="section">
       <div class="section-title">${parentReport.parentKey} ${parentReport.parentSummary}</div>
@@ -219,7 +208,7 @@ export function generateEmailBodyHtml(report: DailyReport): string {
             <span class="task-key">${task.key}</span>
             <span class="task-summary">${task.summary}</span>
           </div>
-          <div class="task-meta">${task.assignee} / ${task.completedAt}</div>
+          <div class="task-meta">${task.completedAt}</div>
         </div>
 `;
     }
@@ -230,14 +219,6 @@ export function generateEmailBodyHtml(report: DailyReport): string {
         <div class="stat">
           <span class="stat-value">${parentReport.completedToday.length}</span>
           <span class="stat-label">本日完了</span>
-        </div>
-        <div class="stat">
-          <span class="stat-value">${remaining}</span>
-          <span class="stat-label">残り</span>
-        </div>
-        <div class="stat">
-          <span class="stat-value">${parentReport.progressPercent}%</span>
-          <span class="stat-label">進捗</span>
         </div>
       </div>
     </div>

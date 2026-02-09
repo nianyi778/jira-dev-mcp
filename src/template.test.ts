@@ -14,7 +14,7 @@ import type { DailyReport, StoredReport } from './types';
 
 describe('template', () => {
   const mockDailyReport: DailyReport = {
-    date: '2024年1月15日',
+    date: '2024年01月15日',
     reports: [
       {
         parentKey: 'AT-100',
@@ -55,27 +55,17 @@ describe('template', () => {
   };
 
   describe('generateSubject', () => {
-    it('should include parent keys and date', () => {
+    it('should include date in slash format and report title', () => {
       const subject = generateSubject(mockDailyReport);
       
-      expect(subject).toContain('AT-100');
-      expect(subject).toContain('2024年1月15日');
-      expect(subject).toContain('Jira進捗報告');
+      expect(subject).toContain('2024/01/15');
+      expect(subject).toContain('不具合releaseレポート');
     });
 
-    it('should include multiple parent keys', () => {
-      const multiReport: DailyReport = {
-        ...mockDailyReport,
-        reports: [
-          { ...mockDailyReport.reports[0], parentKey: 'AT-100' },
-          { ...mockDailyReport.reports[0], parentKey: 'AT-200' },
-        ],
-      };
+    it('should have correct format: date - title', () => {
+      const subject = generateSubject(mockDailyReport);
       
-      const subject = generateSubject(multiReport);
-      
-      expect(subject).toContain('AT-100');
-      expect(subject).toContain('AT-200');
+      expect(subject).toBe('2024/01/15 - 不具合releaseレポート');
     });
   });
 
@@ -86,17 +76,10 @@ describe('template', () => {
       expect(body).toContain('お疲れ様です');
     });
 
-    it('should include date', () => {
+    it('should include date in title', () => {
       const body = generateEmailBody(mockDailyReport);
       
-      expect(body).toContain('2024年1月15日');
-    });
-
-    it('should include parent task info', () => {
-      const body = generateEmailBody(mockDailyReport);
-      
-      expect(body).toContain('AT-100');
-      expect(body).toContain('Main Project Task');
+      expect(body).toContain('2024/01/15 - 不具合releaseレポート');
     });
 
     it('should include completed subtasks', () => {
@@ -104,7 +87,6 @@ describe('template', () => {
       
       expect(body).toContain('AT-101');
       expect(body).toContain('Subtask 1');
-      expect(body).toContain('Test User');
       expect(body).toContain('AT-102');
       expect(body).toContain('Subtask 2');
     });
@@ -113,8 +95,7 @@ describe('template', () => {
       const body = generateEmailBody(mockDailyReport);
       
       expect(body).toContain('本日完了: 2 件');
-      expect(body).toContain('残り: 3 件');
-      expect(body).toContain('全体進捗: 70%');
+      expect(body).toContain('release時刻');
     });
 
     it('should include checkmark emoji for completed tasks', () => {
@@ -158,8 +139,6 @@ describe('template', () => {
       const html = generateEmailBodyHtml(mockDailyReport);
       
       expect(html).toContain('本日完了');
-      expect(html).toContain('残り');
-      expect(html).toContain('70%');
     });
   });
 
@@ -168,7 +147,7 @@ describe('template', () => {
       const subject = generateInternalNotificationSubject(mockDailyReport);
       
       expect(subject).toContain('要確認');
-      expect(subject).toContain('2024年1月15日');
+      expect(subject).toContain('2024年01月15日');
     });
   });
 
@@ -184,7 +163,7 @@ describe('template', () => {
     it('should include report summary', () => {
       const body = generateInternalNotificationBody(mockStoredReport, reviewUrl);
       
-      expect(body).toContain('2024年1月15日');
+      expect(body).toContain('2024年01月15日');
       expect(body).toContain('AT-100');
       expect(body).toContain('2件');
     });

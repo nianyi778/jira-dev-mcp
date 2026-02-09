@@ -374,6 +374,10 @@ export function generateReviewPage(report: StoredReport): string {
           <div class="summary-value highlight">${escapeHtml(parentTasks)}</div>
           <div class="summary-label">対象タスク</div>
         </div>
+        <div class="summary-item">
+          <div class="summary-value" id="releaseTime">--:--</div>
+          <div class="summary-label">release時刻</div>
+        </div>
       </div>
       
       <div class="content">
@@ -416,6 +420,20 @@ export function generateReviewPage(report: StoredReport): string {
   </div>
   
   <script>
+    // Set release time on page load
+    (function setReleaseTime() {
+      const el = document.getElementById('releaseTime');
+      if (el) {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('ja-JP', {
+          timeZone: 'Asia/Tokyo',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        el.textContent = timeStr;
+      }
+    })();
+
     (function initTheme() {
       const root = document.documentElement;
       const storageKey = 'theme';
@@ -470,16 +488,16 @@ export function generateReviewPage(report: StoredReport): string {
       
       // Build mailto URL
       // macOS Mail requires specific format: mailto:to?cc=...&subject=...&body=...
-      const params = new URLSearchParams();
+      // Note: URLSearchParams encodes spaces as '+', but mailto requires '%20'
+      const params = [];
       if (cc) {
-        // Clean up CC addresses - remove spaces after commas
         const cleanCc = cc.split(',').map(e => e.trim()).join(',');
-        params.set('cc', cleanCc);
+        params.push('cc=' + encodeURIComponent(cleanCc));
       }
-      params.set('subject', subject);
-      params.set('body', body);
+      params.push('subject=' + encodeURIComponent(subject));
+      params.push('body=' + encodeURIComponent(body));
       
-      const mailtoUrl = 'mailto:' + to + '?' + params.toString();
+      const mailtoUrl = 'mailto:' + encodeURIComponent(to) + '?' + params.join('&');
       
       // Debug log
       console.log('Generated mailto URL:', mailtoUrl);

@@ -70,8 +70,7 @@ describe('storage', () => {
     it('should generate email subject and body', async () => {
       const stored = await storeReport(mockDailyReport, env, config);
       
-      expect(stored.defaultSubject).toContain('AT-100');
-      expect(stored.defaultSubject).toContain('2024年1月15日');
+      expect(stored.defaultSubject).toContain('不具合releaseレポート');
       expect(stored.defaultBody).toContain('お疲れ様です');
     });
 
