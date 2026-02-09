@@ -8,16 +8,6 @@ on:
       - 'wrangler.toml'
       - 'package.json'
       - '.github/workflows/deploy.yml'
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment to deploy to'
-        required: true
-        default: 'production'
-        type: choice
-        options:
-          - production
-          - staging
 
 jobs:
   test:
