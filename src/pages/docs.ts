@@ -334,7 +334,7 @@ export function getApiModules(baseUrl: string, supportEmail?: string): ApiModule
   ];
 }
 
-function inferAuth(path: string): ApiEndpoint['auth'] {
+function inferAuth(path: string): 'public' | 'session' | 'bearer' | 'session-or-bearer' {
   if (path.startsWith('/admin')) return 'session-or-bearer';
   if (path === '/config') return 'session';
   if (path.startsWith('/review')) return 'public';
@@ -399,7 +399,7 @@ export function generateDocsPage(baseUrl: string, brandName?: string, brandUrl?:
                   <div class="endpoint-header">
                     <span class="method method-${e.method.toLowerCase()}">${e.method}</span>
                     <code class="path">${e.path}</code>
-                    <span class="auth-badge ${(e.auth || inferAuth(e.path))}">${(e.auth || inferAuth(e.path)).replace(/-/g, ' ')}</span>
+                    <span class="auth-badge ${e.auth || inferAuth(e.path)}">${(e.auth || inferAuth(e.path)).replace(/-/g, ' ')}</span>
                     <button class="copy-btn" onclick="navigator.clipboard.writeText('${baseUrl}${e.path.replace(':token', 'xxx')}')">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                     </button>
