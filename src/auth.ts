@@ -102,7 +102,7 @@ export async function authenticate(
   // 2. Check session cookie (for web pages)
   const sessionToken = extractSessionToken(request);
   if (sessionToken) {
-    return validateToken(sessionToken, env, request, false); // Don't log page views
+    return validateToken(sessionToken, env, request, true); // Log all access including web pages
   }
   
   // 3. No authentication provided
