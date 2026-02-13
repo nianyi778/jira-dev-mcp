@@ -87,6 +87,44 @@ function escapeHtml(input: string): string {
     .replace(/'/g, '&#39;');
 }
 
+function getExternalSignatureText(): string {
+  return [
+    '――――――――――――――――',
+    'ELESTYLE 株式会社',
+    '陳 剣 / CHEN.J / TIN.K',
+    'WEB : https://www.elestyle.jp',
+    'MAIL : os.bin.tang@elestyle.jp',
+    'TEL : 03-6222-9557',
+    '〒110-0006',
+    '東京都台東区秋葉原1-1',
+    '秋葉原ビジネスセンター6階',
+    '――――――――――――――――',
+  ].join('\n');
+}
+
+function getExternalSignatureHtml(): string {
+  return `
+    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #475569; line-height: 1.6;">
+      <div style="font-weight: 600; color: #0f172a;">ELESTYLE 株式会社</div>
+      <div>陳 剣 / CHEN.J / TIN.K</div>
+      <div>WEB : <a href="https://www.elestyle.jp" style="color: #0f172a; text-decoration: none;">https://www.elestyle.jp</a></div>
+      <div>MAIL : <a href="mailto:os.bin.tang@elestyle.jp" style="color: #0f172a; text-decoration: none;">os.bin.tang@elestyle.jp</a></div>
+      <div>TEL : 03-6222-9557</div>
+      <div>〒110-0006</div>
+      <div>東京都台東区秋葉原1-1</div>
+      <div>秋葉原ビジネスセンター6階</div>
+    </div>
+  `;
+}
+
+function appendSignatureIfMissing(body: string): string {
+  if (body.includes('https://www.elestyle.jp')) {
+    return body;
+  }
+  const trimmed = body.trimEnd();
+  return `${trimmed}\n\n${getExternalSignatureText()}`;
+}
+
 function buildMimeMessage(
   to: string,
   cc: string | null,
@@ -296,7 +334,9 @@ export async function sendClientEmail(
     throw new Error('Gmail external sender is not configured');
   }
 
-  const safeBody = escapeHtml(body).replace(/\r?\n/g, '<br />');
+  const finalBody = appendSignatureIfMissing(body);
+  const safeBody = escapeHtml(finalBody).replace(/\r?\n/g, '<br />');
+  const signatureHtml = getExternalSignatureHtml();
   const htmlBody = `<!DOCTYPE html>
 <html>
 <head>
@@ -317,6 +357,7 @@ export async function sendClientEmail(
           <tr>
             <td style="padding: 24px 28px; font-size: 14px; line-height: 1.8; color: #1f2937;">
               ${safeBody}
+              ${signatureHtml}
             </td>
           </tr>
           <tr>
@@ -330,7 +371,7 @@ export async function sendClientEmail(
   </table>
 </body>
 </html>`;
-  await sendViaGmail(to, cc, subject, body, htmlBody, env, {
+  await sendViaGmail(to, cc, subject, finalBody, htmlBody, env, {
     senderEmail: env.GMAIL_SENDER_EMAIL,
     senderName: env.GMAIL_SENDER_NAME,
     refreshToken: env.GMAIL_REFRESH_TOKEN,

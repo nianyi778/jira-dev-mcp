@@ -244,6 +244,17 @@ export function generateInternalNotificationBody(
   const { dailyReport } = storedReport;
   const parentKeys = dailyReport.reports.map((r) => r.parentKey).join(', ');
   const separator = '━'.repeat(40);
+  const signatureSeparator = '――――――――――――――――';
+  const signature = [
+    'ELESTYLE 株式会社',
+    '李 凯 / LI.K / RI.GI',
+    'WEB : https://www.elestyle.jp',
+    'MAIL : os.bin.tang@elestyle.jp',
+    'TEL : 03-6222-9557',
+    '〒110-0006',
+    '東京都台東区秋葉原1-1',
+    '秋葉原ビジネスセンター6階',
+  ].join('\n');
 
   return `お疲れ様です。
 
@@ -266,6 +277,10 @@ ${separator}
 ※ このリンクは24時間有効です
 ※ リンク先で宛先・件名・本文を編集できます
 
+${signatureSeparator}
+${signature}
+${signatureSeparator}
+
 ${separator}
 このメールは自動送信されています。
 `;
@@ -283,6 +298,18 @@ export function generateInternalNotificationBodyHtml(
   const { dailyReport } = storedReport;
   const parentKeys = dailyReport.reports.map((r) => r.parentKey).join(', ');
   const baseUrl = jiraBaseUrl.replace(/\/$/, '');
+  const signatureHtml = `
+    <div style="margin: 16px 0 0 0; padding-top: 16px; border-top: 1px solid #e5e5e5; font-size: 12px; color: #444; line-height: 1.6; text-align: left;">
+      <div style="font-weight: 600; color: #1a1a1a;">ELESTYLE 株式会社</div>
+      <div>李 凯 / LI.K / RI.GI</div>
+      <div>WEB : <a href="https://www.elestyle.jp" style="color: #1a1a1a; text-decoration: none;">https://www.elestyle.jp</a></div>
+      <div>MAIL : <a href="mailto:os.bin.tang@elestyle.jp" style="color: #1a1a1a; text-decoration: none;">os.bin.tang@elestyle.jp</a></div>
+      <div>TEL : 03-6222-9557</div>
+      <div>〒110-0006</div>
+      <div>東京都台東区秋葉原1-1</div>
+      <div>秋葉原ビジネスセンター6階</div>
+    </div>
+  `;
 
   // Generate task list HTML
   let taskListHtml = '';
@@ -384,8 +411,9 @@ export function generateInternalNotificationBodyHtml(
 
           <!-- Footer -->
           <tr>
-            <td style="padding: 20px 32px; background: #f9f9f9; text-align: center; font-size: 11px; color: #999;">
-              このメールは自動送信されています
+            <td style="padding: 20px 32px; background: #f9f9f9; font-size: 11px; color: #999;">
+              ${signatureHtml}
+              <div style="margin-top: 14px; text-align: center;">このメールは自動送信されています</div>
             </td>
           </tr>
         </table>
