@@ -87,60 +87,6 @@ function escapeHtml(input: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function getExternalSignatureText(senderEmail: string): string {
-  return [
-    '--------------------',
-    'ELESTYLE 株式会社',
-    '陳 剣 / CHEN.J / TIN.K',
-    'WEB : https://www.elestyle.jp',
-    `MAIL : ${senderEmail}`,
-    'TEL : 03-6222-9557',
-    '〒110-0006',
-    '東京都台東区秋葉原1-1',
-    '秋葉原ビジネスセンター6階',
-    '--------------------',
-  ].join('\n');
-}
-
-function getExternalSignatureHtml(senderEmail: string): string {
-  return `
-    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="font-size: 12px; color: #475569; line-height: 1.6;">
-      <tr>
-        <td style="font-weight: 600; color: #0f172a; padding-bottom: 2px;">ELESTYLE 株式会社</td>
-      </tr>
-      <tr>
-        <td>陳 剣 / CHEN.J / TIN.K</td>
-      </tr>
-      <tr>
-        <td>WEB : <a href="https://www.elestyle.jp" style="color: #0f172a; text-decoration: none;">https://www.elestyle.jp</a></td>
-      </tr>
-      <tr>
-        <td>MAIL : <a href="mailto:${senderEmail}" style="color: #0f172a; text-decoration: none;">${senderEmail}</a></td>
-      </tr>
-      <tr>
-        <td>TEL : 03-6222-9557</td>
-      </tr>
-      <tr>
-        <td>〒110-0006</td>
-      </tr>
-      <tr>
-        <td>東京都台東区秋葉原1-1</td>
-      </tr>
-      <tr>
-        <td>秋葉原ビジネスセンター6階</td>
-      </tr>
-    </table>
-  `;
-}
-
-function appendSignatureIfMissing(body: string, senderEmail: string): string {
-  if (body.includes('https://www.elestyle.jp')) {
-    return body;
-  }
-  const trimmed = body.trimEnd();
-  return `${trimmed}\n\n${getExternalSignatureText(senderEmail)}`;
-}
-
 function buildMimeMessage(
   to: string,
   cc: string | null,
@@ -302,8 +248,8 @@ export async function sendInternalNotification(
   }
 
   const subject = generateInternalNotificationSubject(storedReport.dailyReport);
-  const textBody = generateInternalNotificationBody(storedReport, reviewUrl, internalSenderEmail);
-  const htmlBody = generateInternalNotificationBodyHtml(storedReport, reviewUrl, env.JIRA_BASE_URL, internalSenderEmail);
+  const textBody = generateInternalNotificationBody(storedReport, reviewUrl);
+  const htmlBody = generateInternalNotificationBodyHtml(storedReport, reviewUrl, env.JIRA_BASE_URL);
 
   if (!hasInternalGmailConfig(env)) {
     throw new Error('Gmail internal sender is not configured');
@@ -365,9 +311,7 @@ export async function sendClientEmail(
     throw new Error('GMAIL_SENDER_EMAIL is not configured');
   }
 
-  const finalBody = appendSignatureIfMissing(body, senderEmail);
   const safeBody = escapeHtml(body).replace(/\r?\n/g, '<br />');
-  const signatureHtml = getExternalSignatureHtml(senderEmail);
   const htmlBody = `<!DOCTYPE html>
 <html>
 <head>
@@ -391,11 +335,6 @@ export async function sendClientEmail(
             </td>
           </tr>
           <tr>
-            <td style="padding: 16px 28px; border-top: 1px solid #eef2f7; background: #ffffff;">
-              ${signatureHtml}
-            </td>
-          </tr>
-          <tr>
             <td style="padding: 16px 28px 22px; border-top: 1px solid #eef2f7; font-size: 12px; color: #94a3b8; background: #ffffff;">
               このメールは自動送信されています。
             </td>
@@ -406,7 +345,7 @@ export async function sendClientEmail(
   </table>
 </body>
 </html>`;
-  await sendViaGmail(to, cc, subject, finalBody, htmlBody, env, {
+  await sendViaGmail(to, cc, subject, body, htmlBody, env, {
     senderEmail: env.GMAIL_SENDER_EMAIL,
     senderName: env.GMAIL_SENDER_NAME,
     refreshToken: env.GMAIL_REFRESH_TOKEN,

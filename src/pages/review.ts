@@ -16,20 +16,8 @@ function escapeHtml(text: string): string {
  * Generate the review page HTML
  * Design: Clean, professional, minimal - no AI aesthetics
  */
-export function generateReviewPage(report: StoredReport, senderEmail: string): string {
+export function generateReviewPage(report: StoredReport): string {
   const { dailyReport, defaultTo, defaultCc, defaultSubject, defaultBody } = report;
-  const signatureText = [
-    '--------------------',
-    'ELESTYLE 株式会社',
-    '陳 剣 / CHEN.J / TIN.K',
-    'WEB : https://www.elestyle.jp',
-    `MAIL : ${senderEmail}`,
-    'TEL : 03-6222-9557',
-    '〒110-0006',
-    '東京都台東区秋葉原1-1',
-    '秋葉原ビジネスセンター6階',
-    '--------------------',
-  ].join('\n');
 
   // Calculate summary
   const parentTasks = dailyReport.reports.map((r) => r.parentKey).join(', ');
@@ -594,7 +582,6 @@ export function generateReviewPage(report: StoredReport, senderEmail: string): s
             <textarea id="body">${escapeHtml(defaultBody)}</textarea>
           </div>
         </form>
-        <textarea id="signatureData" style="display: none;">${escapeHtml(signatureText)}</textarea>
       </div>
       
       <div class="actions">
@@ -689,18 +676,6 @@ export function generateReviewPage(report: StoredReport, senderEmail: string): s
       render();
     })();
 
-    function getExternalSignature() {
-      var el = document.getElementById('signatureData');
-      return el ? el.value : '';
-    }
-
-    function appendSignatureIfMissing(body) {
-      if (body.indexOf('https://www.elestyle.jp') !== -1) {
-        return body;
-      }
-      return body.replace(/\\s*$/, '') + '\\n\\n' + getExternalSignature();
-    }
-
     function openPreview() {
       var sendBtn = document.getElementById('sendEmailBtn');
       if (sendBtn && sendBtn.disabled) return;
@@ -709,7 +684,6 @@ export function generateReviewPage(report: StoredReport, senderEmail: string): s
       var cc = document.getElementById('cc').value.trim();
       var subject = document.getElementById('subject').value.trim();
       var body = document.getElementById('body').value;
-      var finalBody = appendSignatureIfMissing(body);
 
       if (!to) {
         alert('宛先を入力してください');
@@ -728,7 +702,7 @@ export function generateReviewPage(report: StoredReport, senderEmail: string): s
       if (previewTo) previewTo.textContent = to;
       if (previewCc) previewCc.textContent = cc || '-';
       if (previewSubject) previewSubject.textContent = subject;
-      if (previewBody) previewBody.textContent = finalBody;
+      if (previewBody) previewBody.textContent = body;
       if (modal) {
         modal.style.display = 'flex';
         modal.setAttribute('aria-hidden', 'false');

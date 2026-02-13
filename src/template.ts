@@ -1,4 +1,4 @@
-import type { DailyReport, ParentTaskReport, StoredReport } from './types';
+import type { DailyReport, ParentTaskReport, StoredReport } from "./types";
 
 /**
  * Generate email subject line in Japanese
@@ -6,20 +6,23 @@ import type { DailyReport, ParentTaskReport, StoredReport } from './types';
  */
 export function generateSubject(report: DailyReport): string {
   // Convert "2026年02月09日" to "2026/02/09"
-  const dateSlash = report.date.replace(/年|月/g, '/').replace(/日/, '');
+  const dateSlash = report.date.replace(/年|月/g, "/").replace(/日/, "");
   return `${dateSlash} - 不具合releaseレポート`;
 }
 
 /**
  * Generate full email body in Japanese (plain text)
  */
-export function generateEmailBody(report: DailyReport, releaseTime?: string): string {
-  const separator = '━'.repeat(40);
-  
+export function generateEmailBody(
+  report: DailyReport,
+  releaseTime?: string,
+): string {
+  const separator = "━".repeat(40);
+
   // Collect all completed tasks from all parent reports
-  let taskList = '';
+  let taskList = "";
   let totalCompleted = 0;
-  
+
   for (const parentReport of report.reports) {
     for (const task of parentReport.completedToday) {
       taskList += `  ✅ ${task.summary}\n`;
@@ -28,17 +31,19 @@ export function generateEmailBody(report: DailyReport, releaseTime?: string): st
   }
 
   // Use provided releaseTime or generate current time (format: 2026/02/09 18:23)
-  const releaseTimeStr = releaseTime || new Intl.DateTimeFormat('ja-JP', {
-    timeZone: 'Asia/Tokyo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date());
+  const releaseTimeStr =
+    releaseTime ||
+    new Intl.DateTimeFormat("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date());
 
   // Convert "2026年02月09日" to "2026/02/09"
-  const dateSlash = report.date.replace(/年|月/g, '/').replace(/日/, '');
+  const dateSlash = report.date.replace(/年|月/g, "/").replace(/日/, "");
 
   return `お疲れ様です。
 
@@ -49,7 +54,6 @@ ${taskList}
   🚀 release時刻: ${releaseTimeStr}
 
 ${separator}
-※ このメールは自動送信されています。
 `;
 }
 
@@ -230,7 +234,9 @@ export function generateEmailBodyHtml(report: DailyReport): string {
 /**
  * Generate internal notification email subject
  */
-export function generateInternalNotificationSubject(report: DailyReport): string {
+export function generateInternalNotificationSubject(
+  report: DailyReport,
+): string {
   return `【${report.date}】ACQ リリース内容報告`;
 }
 
@@ -240,22 +246,10 @@ export function generateInternalNotificationSubject(report: DailyReport): string
 export function generateInternalNotificationBody(
   storedReport: StoredReport,
   reviewUrl: string,
-  senderEmail: string
 ): string {
   const { dailyReport } = storedReport;
-  const parentKeys = dailyReport.reports.map((r) => r.parentKey).join(', ');
-  const separator = '━'.repeat(40);
-  const signatureSeparator = '――――――――――――――――';
-  const signature = [
-    'ELESTYLE 株式会社',
-    '李 凯 / LI.K / RI.GI',
-    'WEB : https://www.elestyle.jp',
-    `MAIL : ${senderEmail}`,
-    'TEL : 03-6222-9557',
-    '〒110-0006',
-    '東京都台東区秋葉原1-1',
-    '秋葉原ビジネスセンター6階',
-  ].join('\n');
+  const parentKeys = dailyReport.reports.map((r) => r.parentKey).join(", ");
+  const separator = "━".repeat(40);
 
   return `お疲れ様です。
 
@@ -278,10 +272,6 @@ ${separator}
 ※ このリンクは24時間有効です
 ※ リンク先で宛先・件名・本文を編集できます
 
-${signatureSeparator}
-${signature}
-${signatureSeparator}
-
 ${separator}
 このメールは自動送信されています。
 `;
@@ -295,26 +285,13 @@ export function generateInternalNotificationBodyHtml(
   storedReport: StoredReport,
   reviewUrl: string,
   jiraBaseUrl: string,
-  senderEmail: string
 ): string {
   const { dailyReport } = storedReport;
-  const parentKeys = dailyReport.reports.map((r) => r.parentKey).join(', ');
-  const baseUrl = jiraBaseUrl.replace(/\/$/, '');
-  const signatureHtml = `
-    <div style="margin: 16px 0 0 0; padding-top: 16px; border-top: 1px solid #e5e5e5; font-size: 12px; color: #444; line-height: 1.6; text-align: left;">
-      <div style="font-weight: 600; color: #1a1a1a;">ELESTYLE 株式会社</div>
-      <div>李 凯 / LI.K / RI.GI</div>
-      <div>WEB : <a href="https://www.elestyle.jp" style="color: #1a1a1a; text-decoration: none;">https://www.elestyle.jp</a></div>
-      <div>MAIL : <a href="mailto:${senderEmail}" style="color: #1a1a1a; text-decoration: none;">${senderEmail}</a></div>
-      <div>TEL : 03-6222-9557</div>
-      <div>〒110-0006</div>
-      <div>東京都台東区秋葉原1-1</div>
-      <div>秋葉原ビジネスセンター6階</div>
-    </div>
-  `;
+  const parentKeys = dailyReport.reports.map((r) => r.parentKey).join(", ");
+  const baseUrl = jiraBaseUrl.replace(/\/$/, "");
 
   // Generate task list HTML
-  let taskListHtml = '';
+  let taskListHtml = "";
   for (const report of dailyReport.reports) {
     taskListHtml += `
       <tr>
@@ -357,7 +334,7 @@ export function generateInternalNotificationBodyHtml(
               <h1 style="margin: 0; font-size: 18px; font-weight: 600; color: #1a1a1a;">リリース進捗報告</h1>
             </td>
           </tr>
-          
+
           <!-- Summary -->
           <tr>
             <td style="padding: 24px 32px;">
@@ -410,14 +387,6 @@ export function generateInternalNotificationBodyHtml(
               </table>
             </td>
           </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="padding: 20px 32px; background: #f9f9f9; font-size: 11px; color: #999;">
-              ${signatureHtml}
-              <div style="margin-top: 14px; text-align: center;">このメールは自動送信されています</div>
-            </td>
-          </tr>
         </table>
       </td>
     </tr>
@@ -439,11 +408,10 @@ export function generateNoTasksNotificationSubject(date: string): string {
  */
 export function generateNoTasksNotificationBody(
   date: string,
-  parentIssues: string[]
+  parentIssues: string[],
 ): string {
-  const parentList = parentIssues.length > 0 
-    ? parentIssues.join(', ')
-    : '（未設定）';
+  const parentList =
+    parentIssues.length > 0 ? parentIssues.join(", ") : "（未設定）";
 
   return `お疲れ様です。
 
@@ -463,11 +431,10 @@ ${date}の進捗報告です。
  */
 export function generateNoTasksNotificationBodyHtml(
   date: string,
-  parentIssues: string[]
+  parentIssues: string[],
 ): string {
-  const parentList = parentIssues.length > 0 
-    ? parentIssues.join(', ')
-    : '（未設定）';
+  const parentList =
+    parentIssues.length > 0 ? parentIssues.join(", ") : "（未設定）";
 
   return `
 <!DOCTYPE html>
@@ -488,7 +455,7 @@ export function generateNoTasksNotificationBodyHtml(
               <h1 style="margin: 0; font-size: 18px; font-weight: 600; color: #1a1a1a;">リリース進捗報告</h1>
             </td>
           </tr>
-          
+
           <!-- Content -->
           <tr>
             <td style="padding: 32px;">
@@ -496,7 +463,7 @@ export function generateNoTasksNotificationBodyHtml(
                 <div style="font-size: 14px; color: #666; margin-bottom: 8px;">本日完了したサブタスク</div>
                 <div style="font-size: 48px; font-weight: 600; color: #999;">0</div>
               </div>
-              
+
               <div style="background: #f9f9f9; border-radius: 6px; padding: 16px; margin-top: 16px;">
                 <div style="font-size: 12px; color: #666; margin-bottom: 4px;">対象タスク</div>
                 <div style="font-size: 14px; color: #1a1a1a; font-weight: 500;">${parentList}</div>
