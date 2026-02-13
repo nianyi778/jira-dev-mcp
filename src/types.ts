@@ -12,10 +12,11 @@ export interface Env {
   // Secrets (set via wrangler secret put)
   JIRA_EMAIL: string;
   JIRA_API_TOKEN: string;
-  RESEND_API_KEY?: string; // Optional in DRY_RUN mode
-  RESEND_FROM_EMAIL?: string; // Optional in DRY_RUN mode (e.g., "Name <email@domain.com>")
   GMAIL_CLIENT_ID?: string;
   GMAIL_CLIENT_SECRET?: string;
+  GMAIL_INTERNAL_REFRESH_TOKEN?: string;
+  GMAIL_INTERNAL_SENDER_EMAIL?: string;
+  GMAIL_INTERNAL_SENDER_NAME?: string;
   GMAIL_REFRESH_TOKEN?: string;
   GMAIL_SENDER_EMAIL?: string;
   GMAIL_SENDER_NAME?: string;
@@ -171,15 +172,6 @@ export interface StoredReport {
   defaultCc: string; // Default CC email
   defaultSubject: string; // Default email subject
   defaultBody: string; // Default email body (plain text)
-}
-
-// Resend Types
-export interface ResendEmailRequest {
-  from: string; // "Name <email@domain.com>" format
-  to: string | string[];
-  subject: string;
-  text?: string;
-  html?: string;
 }
 
 // Incomplete Tasks Types (for Slack notification)

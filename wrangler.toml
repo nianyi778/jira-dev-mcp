@@ -44,8 +44,6 @@ SUPPORT_EMAIL = "kai.li@elestyle.jp"
 # Required secrets:
 #   JIRA_EMAIL - Jira account email
 #   JIRA_API_TOKEN - Jira API token
-#   RESEND_API_KEY - Resend API key (internal emails)
-#   RESEND_FROM_EMAIL - Sender email (internal emails)
 #   GMAIL_CLIENT_ID - Google OAuth client id
 #   GMAIL_CLIENT_SECRET - Google OAuth client secret
 #   GMAIL_REFRESH_TOKEN - Google OAuth refresh token

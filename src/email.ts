@@ -1,4 +1,4 @@
-import type { Env, StoredReport, ResendEmailRequest, AppConfig } from './types';
+import type { Env, StoredReport, AppConfig } from './types';
 import {
   generateInternalNotificationSubject,
   generateInternalNotificationBody,
@@ -8,7 +8,6 @@ import {
   generateNoTasksNotificationBodyHtml,
 } from './template';
 
-const RESEND_API_URL = 'https://api.resend.com/emails';
 const GMAIL_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GMAIL_SEND_URL = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send';
 
@@ -22,13 +21,21 @@ function parseEmailAddresses(emailString: string): string[] {
     .filter((email) => email.length > 0);
 }
 
-function hasGmailConfig(env: Env): boolean {
+function hasExternalGmailConfig(env: Env): boolean {
   return Boolean(
-    env.GMAIL_CLIENT_ID ||
-      env.GMAIL_CLIENT_SECRET ||
-      env.GMAIL_REFRESH_TOKEN ||
-      env.GMAIL_SENDER_EMAIL ||
-      env.GMAIL_SENDER_NAME
+    env.GMAIL_CLIENT_ID &&
+      env.GMAIL_CLIENT_SECRET &&
+      env.GMAIL_REFRESH_TOKEN &&
+      env.GMAIL_SENDER_EMAIL
+  );
+}
+
+function hasInternalGmailConfig(env: Env): boolean {
+  return Boolean(
+    env.GMAIL_CLIENT_ID &&
+      env.GMAIL_CLIENT_SECRET &&
+      env.GMAIL_INTERNAL_REFRESH_TOKEN &&
+      env.GMAIL_INTERNAL_SENDER_EMAIL
   );
 }
 
@@ -120,21 +127,24 @@ function buildMimeMessage(
   return headers + body;
 }
 
-async function getGmailAccessToken(env: Env): Promise<string> {
+async function getGmailAccessToken(
+  env: Env,
+  refreshToken: string | undefined
+): Promise<string> {
   if (!env.GMAIL_CLIENT_ID) {
     throw new Error('GMAIL_CLIENT_ID is not configured');
   }
   if (!env.GMAIL_CLIENT_SECRET) {
     throw new Error('GMAIL_CLIENT_SECRET is not configured');
   }
-  if (!env.GMAIL_REFRESH_TOKEN) {
+  if (!refreshToken) {
     throw new Error('GMAIL_REFRESH_TOKEN is not configured');
   }
 
   const body = new URLSearchParams({
     client_id: env.GMAIL_CLIENT_ID,
     client_secret: env.GMAIL_CLIENT_SECRET,
-    refresh_token: env.GMAIL_REFRESH_TOKEN,
+    refresh_token: refreshToken,
     grant_type: 'refresh_token',
   });
 
@@ -164,9 +174,14 @@ async function sendViaGmail(
   subject: string,
   textBody: string,
   htmlBody: string,
-  env: Env
+  env: Env,
+  options: {
+    senderEmail?: string;
+    senderName?: string;
+    refreshToken?: string;
+  }
 ): Promise<void> {
-  if (!env.GMAIL_SENDER_EMAIL) {
+  if (!options.senderEmail) {
     throw new Error('GMAIL_SENDER_EMAIL is not configured');
   }
 
@@ -177,12 +192,12 @@ async function sendViaGmail(
 
   const ccAddresses = cc ? parseEmailAddresses(cc) : [];
 
-  const fromName = env.GMAIL_SENDER_NAME ? env.GMAIL_SENDER_NAME.trim() : '';
+  const fromName = options.senderName ? options.senderName.trim() : '';
   const from = fromName
-    ? `${encodeMimeHeader(fromName)} <${env.GMAIL_SENDER_EMAIL}>`
-    : env.GMAIL_SENDER_EMAIL;
+    ? `${encodeMimeHeader(fromName)} <${options.senderEmail}>`
+    : options.senderEmail;
 
-  const accessToken = await getGmailAccessToken(env);
+  const accessToken = await getGmailAccessToken(env, options.refreshToken);
   const mime = buildMimeMessage(
     toAddresses.join(', '),
     ccAddresses.length > 0 ? ccAddresses.join(', ') : null,
@@ -213,61 +228,6 @@ async function sendViaGmail(
 }
 
 /**
- * Send email via Resend API
- */
-async function sendViaResend(
-  to: string,
-  subject: string,
-  textBody: string,
-  htmlBody: string,
-  env: Env
-): Promise<void> {
-  if (!env.RESEND_FROM_EMAIL) {
-    throw new Error('RESEND_FROM_EMAIL is not configured');
-  }
-  if (!env.RESEND_API_KEY) {
-    throw new Error('RESEND_API_KEY is not configured');
-  }
-
-  const toAddresses = parseEmailAddresses(to);
-
-  if (toAddresses.length === 0) {
-    throw new Error('No recipient email addresses provided');
-  }
-
-  const emailRequest: ResendEmailRequest = {
-    from: env.RESEND_FROM_EMAIL,
-    to: toAddresses,
-    subject,
-    text: textBody,
-    html: htmlBody,
-  };
-
-  console.log(`Sending email to: ${to}`);
-  console.log(`From: ${env.RESEND_FROM_EMAIL}`);
-  console.log(`Subject: ${subject}`);
-
-  const response = await fetch(RESEND_API_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(emailRequest),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `Resend API error (${response.status}): ${errorText}`
-    );
-  }
-
-  const result = await response.json();
-  console.log('Email sent successfully, id:', (result as { id?: string }).id);
-}
-
-/**
  * Send internal notification email with review link
  */
 export async function sendInternalNotification(
@@ -284,7 +244,15 @@ export async function sendInternalNotification(
   const textBody = generateInternalNotificationBody(storedReport, reviewUrl);
   const htmlBody = generateInternalNotificationBodyHtml(storedReport, reviewUrl);
 
-  await sendViaResend(config.internalEmail, subject, textBody, htmlBody, env);
+  if (!hasInternalGmailConfig(env)) {
+    throw new Error('Gmail internal sender is not configured');
+  }
+
+  await sendViaGmail(config.internalEmail, null, subject, textBody, htmlBody, env, {
+    senderEmail: env.GMAIL_INTERNAL_SENDER_EMAIL,
+    senderName: env.GMAIL_INTERNAL_SENDER_NAME,
+    refreshToken: env.GMAIL_INTERNAL_REFRESH_TOKEN,
+  });
 }
 
 /**
@@ -304,7 +272,15 @@ export async function sendNoTasksNotification(
   const textBody = generateNoTasksNotificationBody(date, parentIssues);
   const htmlBody = generateNoTasksNotificationBodyHtml(date, parentIssues);
 
-  await sendViaResend(config.internalEmail, subject, textBody, htmlBody, env);
+  if (!hasInternalGmailConfig(env)) {
+    throw new Error('Gmail internal sender is not configured');
+  }
+
+  await sendViaGmail(config.internalEmail, null, subject, textBody, htmlBody, env, {
+    senderEmail: env.GMAIL_INTERNAL_SENDER_EMAIL,
+    senderName: env.GMAIL_INTERNAL_SENDER_NAME,
+    refreshToken: env.GMAIL_INTERNAL_REFRESH_TOKEN,
+  });
 }
 
 export async function sendClientEmail(
@@ -314,10 +290,47 @@ export async function sendClientEmail(
   body: string,
   env: Env
 ): Promise<void> {
-  if (!hasGmailConfig(env)) {
-    throw new Error('Gmail is not configured');
+  if (!hasExternalGmailConfig(env)) {
+    throw new Error('Gmail external sender is not configured');
   }
 
-  const htmlBody = `<pre style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; white-space: pre-wrap; line-height: 1.5;">${escapeHtml(body)}</pre>`;
-  await sendViaGmail(to, cc, subject, body, htmlBody, env);
+  const safeBody = escapeHtml(body).replace(/\r?\n/g, '<br />');
+  const htmlBody = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+<body style="margin: 0; padding: 24px; background: #f6f7fb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Meiryo', sans-serif; color: #0f172a;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width: 640px; background: #ffffff; border-radius: 12px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); overflow: hidden;">
+          <tr>
+            <td style="padding: 24px 28px; border-bottom: 1px solid #e5e7eb;">
+              <div style="font-size: 12px; color: #64748b; margin-bottom: 6px;">メール内容プレビュー</div>
+              <div style="font-size: 18px; font-weight: 600; color: #0f172a;">${escapeHtml(subject)}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 28px; font-size: 14px; line-height: 1.8; color: #1f2937;">
+              ${safeBody}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 16px 28px 22px; border-top: 1px solid #eef2f7; font-size: 12px; color: #94a3b8;">
+              このメールは自動送信されています。
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+  await sendViaGmail(to, cc, subject, body, htmlBody, env, {
+    senderEmail: env.GMAIL_SENDER_EMAIL,
+    senderName: env.GMAIL_SENDER_NAME,
+    refreshToken: env.GMAIL_REFRESH_TOKEN,
+  });
 }

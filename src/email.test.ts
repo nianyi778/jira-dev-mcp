@@ -11,6 +11,21 @@ function decodeBase64Url(input: string): string {
   return new TextDecoder().decode(bytes);
 }
 
+function base64Encode(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+function encodeMimeHeader(value: string): string {
+  return `=?UTF-8?B?${base64Encode(value)}?=`;
+}
+
 function createGmailFetchMock(options?: {
   tokenOk?: boolean;
   tokenBody?: string;
@@ -93,24 +108,28 @@ describe('email', () => {
   describe('sendInternalNotification', () => {
     const reviewUrl = 'https://example.com/review/test-token-123';
 
-    it('should send email via Resend API', async () => {
+    it('should send email via Gmail API with internal sender', async () => {
       const mockFetch = createGmailFetchMock();
       globalThis.fetch = mockFetch;
       
       await sendInternalNotification(mockStoredReport, reviewUrl, env, config);
       
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.resend.com/emails',
+        'https://oauth2.googleapis.com/token',
+        expect.objectContaining({
+          method: 'POST',
+        })
+      );
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
-            Authorization: `Bearer ${env.RESEND_API_KEY}`,
+            Authorization: 'Bearer test-access',
             'Content-Type': 'application/json',
           }),
         })
       );
-      const urls = mockFetch.mock.calls.map((call) => call[0]);
-      expect(urls).not.toContain('https://oauth2.googleapis.com/token');
     });
 
     it('should include correct recipient', async () => {
@@ -119,8 +138,9 @@ describe('email', () => {
       
       await sendInternalNotification(mockStoredReport, reviewUrl, env, config);
       
-      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(callBody.to).toContain('internal@test.com');
+      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      const mime = decodeBase64Url(callBody.raw);
+      expect(mime).toContain('To: internal@test.com');
     });
 
     it('should include review URL in body', async () => {
@@ -129,9 +149,9 @@ describe('email', () => {
       
       await sendInternalNotification(mockStoredReport, reviewUrl, env, config);
       
-      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(callBody.text).toContain(reviewUrl);
-      expect(callBody.html).toContain(reviewUrl);
+      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      const mime = decodeBase64Url(callBody.raw);
+      expect(mime).toContain(reviewUrl);
     });
 
     it('should throw if internal email not configured', async () => {
@@ -142,38 +162,23 @@ describe('email', () => {
       ).rejects.toThrow('Internal email is not configured');
     });
 
-    it('should throw if RESEND_FROM_EMAIL not configured', async () => {
-      const envWithoutResend = createMockEnv({
-        overrides: { RESEND_FROM_EMAIL: undefined },
+    it('should throw if internal Gmail sender not configured', async () => {
+      const envWithoutInternal = createMockEnv({
+        overrides: { GMAIL_INTERNAL_SENDER_EMAIL: undefined },
       });
       
       await expect(
-        sendInternalNotification(mockStoredReport, reviewUrl, envWithoutResend, config)
-      ).rejects.toThrow('RESEND_FROM_EMAIL is not configured');
+        sendInternalNotification(mockStoredReport, reviewUrl, envWithoutInternal, config)
+      ).rejects.toThrow('Gmail internal sender is not configured');
     });
 
-    it('should throw if RESEND_API_KEY not configured', async () => {
-      const envWithoutKey = createMockEnv({
-        overrides: { RESEND_API_KEY: undefined },
-      });
-      
-      await expect(
-        sendInternalNotification(mockStoredReport, reviewUrl, envWithoutKey, config)
-      ).rejects.toThrow('RESEND_API_KEY is not configured');
-    });
-
-    it('should throw on Resend API error', async () => {
-      const mockFetch = vi.fn().mockImplementation((input: string) => {
-        if (input === 'https://api.resend.com/emails') {
-          return Promise.resolve(new Response(JSON.stringify({ error: 'Invalid API key' }), { status: 401 }));
-        }
-        return Promise.resolve(new Response('not found', { status: 404 }));
-      });
+    it('should throw on Gmail API error', async () => {
+      const mockFetch = createGmailFetchMock({ sendOk: false, sendBody: JSON.stringify({ error: 'Invalid' }) });
       globalThis.fetch = mockFetch;
       
       await expect(
         sendInternalNotification(mockStoredReport, reviewUrl, env, config)
-      ).rejects.toThrow('Resend API error');
+      ).rejects.toThrow('Gmail API error');
     });
 
     it('should handle multiple recipient emails', async () => {
@@ -184,10 +189,9 @@ describe('email', () => {
       
       await sendInternalNotification(mockStoredReport, reviewUrl, env, config);
       
-      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(callBody.to).toHaveLength(2);
-      expect(callBody.to).toContain('user1@test.com');
-      expect(callBody.to).toContain('user2@test.com');
+      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      const mime = decodeBase64Url(callBody.raw);
+      expect(mime).toContain('To: user1@test.com, user2@test.com');
     });
 
     it('should generate appropriate subject', async () => {
@@ -196,9 +200,9 @@ describe('email', () => {
       
       await sendInternalNotification(mockStoredReport, reviewUrl, env, config);
       
-      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(callBody.subject).toContain('ACQ リリース内容報告');
-      expect(callBody.subject).toContain('2024年1月15日');
+      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      const mime = decodeBase64Url(callBody.raw);
+      expect(mime).toContain(`Subject: ${encodeMimeHeader('【2024年1月15日】ACQ リリース内容報告')}`);
     });
   });
 
@@ -247,7 +251,7 @@ describe('email', () => {
 
       await expect(
         sendClientEmail('client@test.com', null, 'Subject', 'Body', envWithoutGmail)
-      ).rejects.toThrow('Gmail is not configured');
+      ).rejects.toThrow('Gmail external sender is not configured');
     });
 
     it('should throw on Gmail token error', async () => {
@@ -285,7 +289,10 @@ describe('email', () => {
       
       await sendNoTasksNotification('2024年1月15日', ['AT-100'], env, config);
       
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+        expect.objectContaining({ method: 'POST' })
+      );
     });
 
     it('should include parent issues in body', async () => {
@@ -294,9 +301,10 @@ describe('email', () => {
       
       await sendNoTasksNotification('2024年1月15日', ['AT-100', 'AT-200'], env, config);
       
-      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(callBody.text).toContain('AT-100');
-      expect(callBody.text).toContain('AT-200');
+      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      const mime = decodeBase64Url(callBody.raw);
+      expect(mime).toContain('AT-100');
+      expect(mime).toContain('AT-200');
     });
 
     it('should have appropriate subject indicating no tasks', async () => {
@@ -305,8 +313,9 @@ describe('email', () => {
       
       await sendNoTasksNotification('2024年1月15日', ['AT-100'], env, config);
       
-      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(callBody.subject).toContain('ACQ リリース内容報告');
+      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      const mime = decodeBase64Url(callBody.raw);
+      expect(mime).toContain(`Subject: ${encodeMimeHeader('【2024年1月15日】ACQ リリース内容報告')}`);
     });
 
     it('should throw if internal email not configured', async () => {
@@ -323,10 +332,11 @@ describe('email', () => {
       
       await sendNoTasksNotification('2024年1月15日', ['AT-100'], env, config);
       
-      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(callBody.text).toBeDefined();
-      expect(callBody.html).toBeDefined();
-      expect(callBody.html).toContain('<!DOCTYPE html>');
+      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      const mime = decodeBase64Url(callBody.raw);
+      expect(mime).toContain('Content-Type: text/plain');
+      expect(mime).toContain('Content-Type: text/html');
+      expect(mime).toContain('<!DOCTYPE html>');
     });
   });
 });

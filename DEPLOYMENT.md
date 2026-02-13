@@ -37,10 +37,11 @@ wrangler d1 execute jira_monitor_DB --file schema/token_db.sql --remote
 ```bash
 wrangler secret put JIRA_EMAIL
 wrangler secret put JIRA_API_TOKEN
-wrangler secret put RESEND_API_KEY
-wrangler secret put RESEND_FROM_EMAIL
 wrangler secret put GMAIL_CLIENT_ID
 wrangler secret put GMAIL_CLIENT_SECRET
+wrangler secret put GMAIL_INTERNAL_REFRESH_TOKEN
+wrangler secret put GMAIL_INTERNAL_SENDER_EMAIL
+wrangler secret put GMAIL_INTERNAL_SENDER_NAME
 wrangler secret put GMAIL_REFRESH_TOKEN
 wrangler secret put GMAIL_SENDER_EMAIL
 wrangler secret put GMAIL_SENDER_NAME
