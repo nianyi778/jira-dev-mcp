@@ -104,16 +104,32 @@ function getExternalSignatureText(senderEmail: string): string {
 
 function getExternalSignatureHtml(senderEmail: string): string {
   return `
-    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #475569; line-height: 1.6;">
-      <div style="font-weight: 600; color: #0f172a;">ELESTYLE 株式会社</div>
-      <div>陳 剣 / CHEN.J / TIN.K</div>
-      <div>WEB : <a href="https://www.elestyle.jp" style="color: #0f172a; text-decoration: none;">https://www.elestyle.jp</a></div>
-      <div>MAIL : <a href="mailto:${senderEmail}" style="color: #0f172a; text-decoration: none;">${senderEmail}</a></div>
-      <div>TEL : 03-6222-9557</div>
-      <div>〒110-0006</div>
-      <div>東京都台東区秋葉原1-1</div>
-      <div>秋葉原ビジネスセンター6階</div>
-    </div>
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="font-size: 12px; color: #475569; line-height: 1.6;">
+      <tr>
+        <td style="font-weight: 600; color: #0f172a; padding-bottom: 2px;">ELESTYLE 株式会社</td>
+      </tr>
+      <tr>
+        <td>陳 剣 / CHEN.J / TIN.K</td>
+      </tr>
+      <tr>
+        <td>WEB : <a href="https://www.elestyle.jp" style="color: #0f172a; text-decoration: none;">https://www.elestyle.jp</a></td>
+      </tr>
+      <tr>
+        <td>MAIL : <a href="mailto:${senderEmail}" style="color: #0f172a; text-decoration: none;">${senderEmail}</a></td>
+      </tr>
+      <tr>
+        <td>TEL : 03-6222-9557</td>
+      </tr>
+      <tr>
+        <td>〒110-0006</td>
+      </tr>
+      <tr>
+        <td>東京都台東区秋葉原1-1</td>
+      </tr>
+      <tr>
+        <td>秋葉原ビジネスセンター6階</td>
+      </tr>
+    </table>
   `;
 }
 
@@ -358,25 +374,29 @@ export async function sendClientEmail(
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 </head>
-<body style="margin: 0; padding: 24px; background: #f6f7fb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Meiryo', sans-serif; color: #0f172a;">
-  <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+<body style="margin: 0; padding: 0; background: #f6f7fb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Meiryo', sans-serif; color: #0f172a;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" bgcolor="#f6f7fb">
     <tr>
-      <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width: 640px; background: #ffffff; border-radius: 12px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); overflow: hidden;">
+      <td align="center" style="padding: 24px;">
+        <table width="640" cellpadding="0" cellspacing="0" role="presentation" bgcolor="#ffffff" style="width: 640px; max-width: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); overflow: hidden;">
           <tr>
-            <td style="padding: 24px 28px; border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 24px 28px; border-bottom: 1px solid #e5e7eb; background: #ffffff;">
               <div style="font-size: 12px; color: #64748b; margin-bottom: 6px;">メール内容プレビュー</div>
               <div style="font-size: 18px; font-weight: 600; color: #0f172a;">${escapeHtml(subject)}</div>
             </td>
           </tr>
           <tr>
-            <td style="padding: 24px 28px; font-size: 14px; line-height: 1.8; color: #1f2937;">
+            <td style="padding: 24px 28px; font-size: 14px; line-height: 1.8; color: #1f2937; background: #ffffff;">
               ${safeBody}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 16px 28px; border-top: 1px solid #eef2f7; background: #ffffff;">
               ${signatureHtml}
             </td>
           </tr>
           <tr>
-            <td style="padding: 16px 28px 22px; border-top: 1px solid #eef2f7; font-size: 12px; color: #94a3b8;">
+            <td style="padding: 16px 28px 22px; border-top: 1px solid #eef2f7; font-size: 12px; color: #94a3b8; background: #ffffff;">
               このメールは自動送信されています。
             </td>
           </tr>
