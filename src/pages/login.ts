@@ -536,28 +536,28 @@ export function generateLoginPage(baseUrl: string, options: LoginPageOptions = {
           inputs[index - 1].focus();
         }
         
-        // Handle paste
-        if (e.key === 'v' && (e.ctrlKey || e.metaKey)) {
-          e.preventDefault();
-          navigator.clipboard.readText().then(text => {
-            const digits = text.replace(/\\D/g, '').slice(0, 6);
-            digits.split('').forEach((digit, i) => {
-              if (inputs[i]) {
-                inputs[i].value = digit;
-              }
-            });
-            updateCode();
-            if (digits.length === 6) {
-              inputs[5].focus();
-            } else if (inputs[digits.length]) {
-              inputs[digits.length].focus();
-            }
-          });
-        }
-        
         // Auto submit on Enter if code is complete
         if (e.key === 'Enter' && codeInput.value.length === 6) {
           form.submit();
+        }
+      });
+      
+      // Handle paste on individual input
+      input.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const text = e.clipboardData.getData('text');
+        const digits = text.replace(/\\D/g, '').slice(0, 6);
+        if (digits.length === 0) return;
+        digits.split('').forEach((digit, i) => {
+          if (inputs[i]) {
+            inputs[i].value = digit;
+          }
+        });
+        updateCode();
+        if (digits.length === 6) {
+          inputs[5].focus();
+        } else if (inputs[digits.length]) {
+          inputs[digits.length].focus();
         }
       });
       
@@ -578,7 +578,6 @@ export function generateLoginPage(baseUrl: string, options: LoginPageOptions = {
       submitBtn.innerHTML = '<div class="spinner"></div><span>验证中...</span>';
     });
     
-    // Handle paste on document
     document.addEventListener('paste', (e) => {
       if (document.activeElement.classList.contains('code-input')) return;
       
