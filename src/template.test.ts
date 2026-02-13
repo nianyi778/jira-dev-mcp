@@ -85,9 +85,7 @@ describe('template', () => {
     it('should include completed subtasks', () => {
       const body = generateEmailBody(mockDailyReport);
       
-      expect(body).toContain('AT-101');
       expect(body).toContain('Subtask 1');
-      expect(body).toContain('AT-102');
       expect(body).toContain('Subtask 2');
     });
 
@@ -131,7 +129,6 @@ describe('template', () => {
       const html = generateEmailBodyHtml(mockDailyReport);
       
       expect(html).toContain('AT-100');
-      expect(html).toContain('AT-101');
       expect(html).toContain('Subtask 1');
     });
 
@@ -208,7 +205,6 @@ describe('template', () => {
     it('should include task list', () => {
       const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl);
       
-      expect(html).toContain('AT-101');
       expect(html).toContain('Subtask 1');
     });
   });

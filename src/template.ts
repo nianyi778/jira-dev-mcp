@@ -22,7 +22,7 @@ export function generateEmailBody(report: DailyReport, releaseTime?: string): st
   
   for (const parentReport of report.reports) {
     for (const task of parentReport.completedToday) {
-      taskList += `  ✅ ${task.key} - ${task.summary}\n`;
+      taskList += `  ✅ ${task.summary}\n`;
     }
     totalCompleted += parentReport.completedToday.length;
   }
@@ -135,15 +135,6 @@ export function generateEmailBodyHtml(report: DailyReport): string {
       gap: 8px;
       margin-bottom: 6px;
     }
-    .task-key {
-      font-size: 12px;
-      font-weight: 600;
-      color: #0066cc;
-      background: #e6f0ff;
-      padding: 2px 6px;
-      border-radius: 3px;
-      white-space: nowrap;
-    }
     .task-summary {
       font-size: 14px;
       color: #1a1a1a;
@@ -205,7 +196,6 @@ export function generateEmailBodyHtml(report: DailyReport): string {
       html += `
         <div class="task-item">
           <div class="task-header">
-            <span class="task-key">${task.key}</span>
             <span class="task-summary">${task.summary}</span>
           </div>
           <div class="task-meta">${task.completedAt}</div>
@@ -304,8 +294,7 @@ export function generateInternalNotificationBodyHtml(
       taskListHtml += `
           <div style="padding: 8px 12px; background: #f9f9f9; border-radius: 4px; margin-bottom: 6px;">
             <div style="margin-bottom: 4px;">
-              <span style="font-size: 11px; font-weight: 600; color: #0066cc; background: #e6f0ff; padding: 1px 5px; border-radius: 2px;">${task.key}</span>
-              <span style="font-size: 13px; color: #1a1a1a; margin-left: 6px;">${task.summary}</span>
+              <span style="font-size: 13px; color: #1a1a1a;">${task.summary}</span>
             </div>
             <div style="font-size: 11px; color: #666;">${task.assignee} / ${task.completedAt}</div>
           </div>
