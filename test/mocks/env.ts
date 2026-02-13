@@ -119,6 +119,11 @@ const DEFAULT_ENV: Omit<Env, 'REPORT_KV' | 'TOKEN_DB'> = {
   JIRA_API_TOKEN: 'test-jira-token',
   RESEND_API_KEY: 'test-resend-key',
   RESEND_FROM_EMAIL: 'Test <test@example.com>',
+  GMAIL_CLIENT_ID: 'test-gmail-client-id',
+  GMAIL_CLIENT_SECRET: 'test-gmail-client-secret',
+  GMAIL_REFRESH_TOKEN: 'test-gmail-refresh-token',
+  GMAIL_SENDER_EMAIL: 'test.sender@example.com',
+  GMAIL_SENDER_NAME: 'Test Sender',
   SLACK_WEBHOOK_URL: 'https://hooks.slack.com/test',
 };
 

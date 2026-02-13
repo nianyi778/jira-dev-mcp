@@ -14,6 +14,11 @@ export interface Env {
   JIRA_API_TOKEN: string;
   RESEND_API_KEY?: string; // Optional in DRY_RUN mode
   RESEND_FROM_EMAIL?: string; // Optional in DRY_RUN mode (e.g., "Name <email@domain.com>")
+  GMAIL_CLIENT_ID?: string;
+  GMAIL_CLIENT_SECRET?: string;
+  GMAIL_REFRESH_TOKEN?: string;
+  GMAIL_SENDER_EMAIL?: string;
+  GMAIL_SENDER_NAME?: string;
   SLACK_WEBHOOK_URL?: string; // Slack incoming webhook URL for notifications
 
   // KV namespace binding (stores reports, config, tokens, logs)
