@@ -277,10 +277,12 @@ ${separator}
  */
 export function generateInternalNotificationBodyHtml(
   storedReport: StoredReport,
-  reviewUrl: string
+  reviewUrl: string,
+  jiraBaseUrl: string
 ): string {
   const { dailyReport } = storedReport;
   const parentKeys = dailyReport.reports.map((r) => r.parentKey).join(', ');
+  const baseUrl = jiraBaseUrl.replace(/\/$/, '');
 
   // Generate task list HTML
   let taskListHtml = '';
@@ -291,10 +293,11 @@ export function generateInternalNotificationBodyHtml(
           <div style="font-weight: 600; color: #1a1a1a; margin-bottom: 8px;">${report.parentKey} ${report.parentSummary}</div>
     `;
     for (const task of report.completedToday) {
+      const issueUrl = `${baseUrl}/browse/${task.key}`;
       taskListHtml += `
           <div style="padding: 8px 12px; background: #f9f9f9; border-radius: 4px; margin-bottom: 6px;">
             <div style="margin-bottom: 4px;">
-              <span style="font-size: 13px; color: #1a1a1a;">${task.summary}</span>
+              <a href="${issueUrl}" style="font-size: 13px; color: #1a1a1a; text-decoration: none;">[${task.key}] ${task.summary}</a>
             </div>
             <div style="font-size: 11px; color: #666;">${task.assignee} / ${task.completedAt}</div>
           </div>

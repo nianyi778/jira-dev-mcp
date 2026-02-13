@@ -110,13 +110,13 @@ function buildMimeMessage(
   const body = [
     `--${boundary}`,
     'Content-Type: text/plain; charset="UTF-8"',
-    'Content-Transfer-Encoding: 7bit',
+    'Content-Transfer-Encoding: 8bit',
     '',
     textBody,
     '',
     `--${boundary}`,
     'Content-Type: text/html; charset="UTF-8"',
-    'Content-Transfer-Encoding: 7bit',
+    'Content-Transfer-Encoding: 8bit',
     '',
     htmlBody,
     '',
@@ -242,7 +242,7 @@ export async function sendInternalNotification(
 
   const subject = generateInternalNotificationSubject(storedReport.dailyReport);
   const textBody = generateInternalNotificationBody(storedReport, reviewUrl);
-  const htmlBody = generateInternalNotificationBodyHtml(storedReport, reviewUrl);
+  const htmlBody = generateInternalNotificationBodyHtml(storedReport, reviewUrl, env.JIRA_BASE_URL);
 
   if (!hasInternalGmailConfig(env)) {
     throw new Error('Gmail internal sender is not configured');

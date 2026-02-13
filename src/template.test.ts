@@ -182,30 +182,32 @@ describe('template', () => {
     const reviewUrl = 'https://example.com/review/test-token-123';
 
     it('should return valid HTML', () => {
-      const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl);
+    const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl, 'https://example.atlassian.net');
       
       expect(html).toContain('<!DOCTYPE html>');
       expect(html).toContain('</html>');
     });
 
     it('should include clickable button with review URL', () => {
-      const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl);
+    const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl, 'https://example.atlassian.net');
       
       expect(html).toContain(`href="${reviewUrl}"`);
       expect(html).toContain('確認ページを開く');
     });
 
     it('should include summary stats', () => {
-      const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl);
+    const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl, 'https://example.atlassian.net');
       
       expect(html).toContain('完了タスク');
       expect(html).toContain('2'); // totalCompletedToday
     });
 
     it('should include task list', () => {
-      const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl);
+    const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl, 'https://example.atlassian.net');
       
       expect(html).toContain('Subtask 1');
+      expect(html).toContain('AT-101');
+      expect(html).toContain('https://example.atlassian.net/browse/AT-101');
     });
   });
 
