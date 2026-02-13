@@ -258,6 +258,12 @@ export function generateReviewPage(report: StoredReport): string {
       cursor: pointer;
       transition: background-color 0.2s, transform 0.1s;
     }
+
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+      transform: none;
+    }
     
     .btn-primary {
       background: var(--button-bg);
@@ -266,6 +272,11 @@ export function generateReviewPage(report: StoredReport): string {
     
     .btn-primary:hover {
       background: var(--button-hover);
+    }
+
+    .btn-primary:disabled {
+      background: var(--button-bg);
+      box-shadow: none;
     }
     
     .btn-primary:active {
