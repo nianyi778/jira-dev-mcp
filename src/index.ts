@@ -1,6 +1,6 @@
 import type { Env, DailyReport, ParentTaskReport, IncompleteTasksReport, AppConfig } from './types';
 import { generateParentTaskReport, getTodayDateJapanese, getSubtasksDebugInfo, getIncompleteTasksReport } from './jira';
-import { sendInternalNotification, sendNoTasksNotification } from './email';
+import { sendClientEmail, sendInternalNotification, sendNoTasksNotification } from './email';
 import { storeReport, getReport, createMockReport } from './storage';
 import { generateReviewPage, generateErrorPage } from './pages/review';
 import { sendIncompleteTasksNotification, buildIncompleteTasksMessage } from './slack';
@@ -225,6 +225,48 @@ export default {
       } catch (error) {
         console.error('Error confirming email send:', error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return jsonResponse({ success: false, error: errorMessage }, 500);
+      }
+    }
+
+    const sendMatch = pathname.match(/^\/review\/([a-zA-Z0-9-]+)\/send$/);
+    if (sendMatch && request.method === 'POST') {
+      const token = sendMatch[1];
+      try {
+        const report = await getReport(token, env);
+        if (!report) {
+          return jsonResponse({ error: 'Report not found or expired' }, 404);
+        }
+
+        let payload: { to?: string; cc?: string; subject?: string; body?: string } = {};
+        try {
+          payload = (await request.json()) as { to?: string; cc?: string; subject?: string; body?: string };
+        } catch {
+          payload = {};
+        }
+
+        const to = (payload.to || report.defaultTo || '').trim();
+        const cc = (payload.cc || report.defaultCc || '').trim();
+        const subject = (payload.subject || report.defaultSubject || '').trim();
+        const body = payload.body || report.defaultBody || '';
+
+        if (!to) {
+          return jsonResponse({ error: 'Recipient is required' }, 400);
+        }
+        if (!subject) {
+          return jsonResponse({ error: 'Subject is required' }, 400);
+        }
+
+        await sendClientEmail(to, cc || null, subject, body, env);
+
+        const todayKey = getTodayDateKey(env.TIMEZONE);
+        const reviewUrl = `${env.WORKER_BASE_URL}/review/${report.id}`;
+        await logEmailSend(env, todayKey, 'manual', 'Review Page', true, 'Client email sent via Gmail', reviewUrl);
+        return jsonResponse({ success: true });
+      } catch (error) {
+        const todayKey = getTodayDateKey(env.TIMEZONE);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        await logEmailSend(env, todayKey, 'manual', 'Review Page', false, `Client email failed: ${errorMessage}`);
         return jsonResponse({ success: false, error: errorMessage }, 500);
       }
     }

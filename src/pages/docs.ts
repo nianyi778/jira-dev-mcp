@@ -115,7 +115,7 @@ export function getApiModules(baseUrl: string, supportEmail?: string): ApiModule
         {
           method: 'GET',
           path: '/review/:token',
-          description: '查看报告详情页面，用户可在此页面预览并通过 mailto 发送给客户',
+          description: '查看报告详情页面，用户可在此页面预览并发送给客户',
           params: [
             {
               name: 'token',
@@ -126,6 +126,24 @@ export function getApiModules(baseUrl: string, supportEmail?: string): ApiModule
           ],
           responseType: 'HTML 报告预览页面',
           example: `${baseUrl}/review/abc123-def456`,
+          auth: 'public',
+        },
+        {
+          method: 'POST',
+          path: '/review/:token/send',
+          description: '在 review 页面发送客户邮件（通过 Gmail API 统一发送）',
+          params: [
+            {
+              name: 'token',
+              type: 'string',
+              required: true,
+              description: '报告的唯一标识符（UUID），与 review 页面 URL 中的 token 一致',
+            },
+          ],
+          responseJson: {
+            success: true,
+          },
+          example: `curl -X POST -H "Content-Type: application/json" -d '{"to":"client@example.com","subject":"Test","body":"Hello"}' ${baseUrl}/review/abc123-def456/send`,
           auth: 'public',
         },
         {

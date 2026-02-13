@@ -44,13 +44,13 @@ SUPPORT_EMAIL = "kai.li@elestyle.jp"
 # Required secrets:
 #   JIRA_EMAIL - Jira account email
 #   JIRA_API_TOKEN - Jira API token
+#   RESEND_API_KEY - Resend API key (internal emails)
+#   RESEND_FROM_EMAIL - Sender email (internal emails)
 #   GMAIL_CLIENT_ID - Google OAuth client id
 #   GMAIL_CLIENT_SECRET - Google OAuth client secret
 #   GMAIL_REFRESH_TOKEN - Google OAuth refresh token
 #   GMAIL_SENDER_EMAIL - Sender email
 #   GMAIL_SENDER_NAME - Sender display name
-#   RESEND_API_KEY - Resend API key (fallback)
-#   RESEND_FROM_EMAIL - Sender email (fallback)
 #   SLACK_WEBHOOK_URL - Slack incoming webhook URL
 
 # Configuration stored in KV (key prefix: config:)

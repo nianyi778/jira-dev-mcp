@@ -492,14 +492,14 @@ export function generateReviewPage(report: StoredReport): string {
       </div>
       
       <div class="actions">
-        <span class="actions-hint">クリックするとメールアプリが開きます</span>
-        <button type="button" class="btn btn-primary" onclick="openMailClient()">
-          メールを作成
+        <span class="actions-hint">クリックするとメールが送信されます</span>
+        <button type="button" class="btn btn-primary" id="sendEmailBtn" onclick="sendClientEmail()">
+          メールを送信
         </button>
       </div>
       
       <div class="confirm-section" id="confirmSection" style="display: none;">
-        <p class="confirm-hint">邮件客户端已打开。发送完成后，请点击下方按钮确认。</p>
+        <p class="confirm-hint">已发送邮件，正在记录发送确认。</p>
         <button class="confirm-send-btn" id="confirmSendBtn" type="button" disabled onclick="confirmEmailSent()">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L10.5 16.5L18 7.5" />
@@ -566,45 +566,59 @@ export function generateReviewPage(report: StoredReport): string {
       render();
     })();
 
-    function openMailClient() {
+    function sendClientEmail() {
       const to = document.getElementById('to').value.trim();
       const cc = document.getElementById('cc').value.trim();
       const subject = document.getElementById('subject').value.trim();
       const body = document.getElementById('body').value;
+      var sendBtn = document.getElementById('sendEmailBtn');
+      var cs = document.getElementById('confirmSection');
+      var notif = document.getElementById('confirmNotification');
+      var label = document.getElementById('confirmSendLabel');
+      var cb = document.getElementById('confirmSendBtn');
+      if (sendBtn) sendBtn.disabled = true;
       
       if (!to) {
         alert('宛先を入力してください');
+        if (sendBtn) sendBtn.disabled = false;
         return;
       }
       
       if (!subject) {
         alert('件名を入力してください');
+        if (sendBtn) sendBtn.disabled = false;
         return;
       }
       
-      // Build mailto URL
-      // macOS Mail requires specific format: mailto:to?cc=...&subject=...&body=...
-      // Note: URLSearchParams encodes spaces as '+', but mailto requires '%20'
-      const params = [];
-      if (cc) {
-        const cleanCc = cc.split(',').map(e => e.trim()).join(',');
-        params.push('cc=' + encodeURIComponent(cleanCc));
-      }
-      params.push('subject=' + encodeURIComponent(subject));
-      params.push('body=' + encodeURIComponent(body));
-      
-      const mailtoUrl = 'mailto:' + encodeURIComponent(to) + '?' + params.join('&');
-      
-      // Debug log
-      console.log('Generated mailto URL:', mailtoUrl);
-      
-      // Open mail client
-      window.location.href = mailtoUrl;
-
-      var cs = document.getElementById('confirmSection');
-      if (cs) cs.style.display = 'block';
-      var cb = document.getElementById('confirmSendBtn');
-      if (cb) cb.disabled = false;
+      var token = window.location.pathname.split('/')[2];
+      fetch('/review/' + token + '/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: to, cc: cc, subject: subject, body: body })
+      })
+        .then(function(res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        })
+        .then(function() {
+          if (cs) cs.style.display = 'block';
+          if (label) label.textContent = '确认中...';
+          if (notif) {
+            notif.className = 'confirm-notification';
+            notif.textContent = '';
+          }
+          confirmEmailSent();
+        })
+        .catch(function(err) {
+          if (sendBtn) sendBtn.disabled = false;
+          if (cs) cs.style.display = 'block';
+          if (label) label.textContent = '我已发送';
+          if (cb) cb.disabled = false;
+          if (notif) {
+            notif.className = 'confirm-notification error';
+            notif.textContent = '发送失败: ' + err.message;
+          }
+        });
     }
 
     function confirmEmailSent() {

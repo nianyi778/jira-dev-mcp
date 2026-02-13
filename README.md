@@ -65,6 +65,8 @@ pnpm install
 ```ini
 JIRA_EMAIL=you@example.com
 JIRA_API_TOKEN=your-jira-api-token
+RESEND_API_KEY=your-resend-key
+RESEND_FROM_EMAIL="Name <email@domain.com>"
 GMAIL_CLIENT_ID=your-google-oauth-client-id
 GMAIL_CLIENT_SECRET=your-google-oauth-client-secret
 GMAIL_REFRESH_TOKEN=your-google-oauth-refresh-token
@@ -104,6 +106,8 @@ wrangler d1 execute jira_monitor_DB --file schema/token_db.sql --remote
 ```bash
 wrangler secret put JIRA_EMAIL
 wrangler secret put JIRA_API_TOKEN
+wrangler secret put RESEND_API_KEY
+wrangler secret put RESEND_FROM_EMAIL
 wrangler secret put GMAIL_CLIENT_ID
 wrangler secret put GMAIL_CLIENT_SECRET
 wrangler secret put GMAIL_REFRESH_TOKEN
@@ -132,6 +136,8 @@ pnpm run deploy
 |---|---|
 | `JIRA_EMAIL` | Jira account email |
 | `JIRA_API_TOKEN` | Jira API token |
+| `RESEND_API_KEY` | Resend API key (internal emails) |
+| `RESEND_FROM_EMAIL` | Sender email (internal emails) |
 | `GMAIL_CLIENT_ID` | Google OAuth client id |
 | `GMAIL_CLIENT_SECRET` | Google OAuth client secret |
 | `GMAIL_REFRESH_TOKEN` | Google OAuth refresh token |

@@ -44,8 +44,18 @@ function base64UrlEncode(input: string): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function buildMimeMessage(
   to: string,
+  cc: string | null,
   subject: string,
   textBody: string,
   htmlBody: string,
@@ -55,6 +65,7 @@ function buildMimeMessage(
   const headers = [
     `From: ${from}`,
     `To: ${to}`,
+    cc ? `Cc: ${cc}` : '',
     `Subject: ${subject}`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
@@ -121,6 +132,7 @@ async function getGmailAccessToken(env: Env): Promise<string> {
 
 async function sendViaGmail(
   to: string,
+  cc: string | null,
   subject: string,
   textBody: string,
   htmlBody: string,
@@ -135,13 +147,22 @@ async function sendViaGmail(
     throw new Error('No recipient email addresses provided');
   }
 
+  const ccAddresses = cc ? parseEmailAddresses(cc) : [];
+
   const fromName = env.GMAIL_SENDER_NAME ? env.GMAIL_SENDER_NAME.trim() : '';
   const from = fromName
     ? `${fromName} <${env.GMAIL_SENDER_EMAIL}>`
     : env.GMAIL_SENDER_EMAIL;
 
   const accessToken = await getGmailAccessToken(env);
-  const mime = buildMimeMessage(toAddresses.join(', '), subject, textBody, htmlBody, from);
+  const mime = buildMimeMessage(
+    toAddresses.join(', '),
+    ccAddresses.length > 0 ? ccAddresses.join(', ') : null,
+    subject,
+    textBody,
+    htmlBody,
+    from
+  );
   const raw = base64UrlEncode(mime);
 
   console.log(`Sending email to: ${to}`);
@@ -218,20 +239,6 @@ async function sendViaResend(
   console.log('Email sent successfully, id:', (result as { id?: string }).id);
 }
 
-async function sendEmail(
-  to: string,
-  subject: string,
-  textBody: string,
-  htmlBody: string,
-  env: Env
-): Promise<void> {
-  if (hasGmailConfig(env)) {
-    await sendViaGmail(to, subject, textBody, htmlBody, env);
-    return;
-  }
-  await sendViaResend(to, subject, textBody, htmlBody, env);
-}
-
 /**
  * Send internal notification email with review link
  */
@@ -249,7 +256,7 @@ export async function sendInternalNotification(
   const textBody = generateInternalNotificationBody(storedReport, reviewUrl);
   const htmlBody = generateInternalNotificationBodyHtml(storedReport, reviewUrl);
 
-  await sendEmail(config.internalEmail, subject, textBody, htmlBody, env);
+  await sendViaResend(config.internalEmail, subject, textBody, htmlBody, env);
 }
 
 /**
@@ -269,5 +276,20 @@ export async function sendNoTasksNotification(
   const textBody = generateNoTasksNotificationBody(date, parentIssues);
   const htmlBody = generateNoTasksNotificationBodyHtml(date, parentIssues);
 
-  await sendEmail(config.internalEmail, subject, textBody, htmlBody, env);
+  await sendViaResend(config.internalEmail, subject, textBody, htmlBody, env);
+}
+
+export async function sendClientEmail(
+  to: string,
+  cc: string | null,
+  subject: string,
+  body: string,
+  env: Env
+): Promise<void> {
+  if (!hasGmailConfig(env)) {
+    throw new Error('Gmail is not configured');
+  }
+
+  const htmlBody = `<pre style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; white-space: pre-wrap; line-height: 1.5;">${escapeHtml(body)}</pre>`;
+  await sendViaGmail(to, cc, subject, body, htmlBody, env);
 }

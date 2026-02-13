@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { sendInternalNotification, sendNoTasksNotification } from './email';
+import { sendClientEmail, sendInternalNotification, sendNoTasksNotification } from './email';
 import { createMockEnv } from '../test/mocks/env';
 import type { StoredReport, DailyReport, AppConfig } from './types';
 
@@ -93,12 +93,122 @@ describe('email', () => {
   describe('sendInternalNotification', () => {
     const reviewUrl = 'https://example.com/review/test-token-123';
 
-    it('should send email via Gmail API', async () => {
+    it('should send email via Resend API', async () => {
       const mockFetch = createGmailFetchMock();
       globalThis.fetch = mockFetch;
       
       await sendInternalNotification(mockStoredReport, reviewUrl, env, config);
       
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.resend.com/emails',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: `Bearer ${env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          }),
+        })
+      );
+      const urls = mockFetch.mock.calls.map((call) => call[0]);
+      expect(urls).not.toContain('https://oauth2.googleapis.com/token');
+    });
+
+    it('should include correct recipient', async () => {
+      const mockFetch = createGmailFetchMock();
+      globalThis.fetch = mockFetch;
+      
+      await sendInternalNotification(mockStoredReport, reviewUrl, env, config);
+      
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(callBody.to).toContain('internal@test.com');
+    });
+
+    it('should include review URL in body', async () => {
+      const mockFetch = createGmailFetchMock();
+      globalThis.fetch = mockFetch;
+      
+      await sendInternalNotification(mockStoredReport, reviewUrl, env, config);
+      
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(callBody.text).toContain(reviewUrl);
+      expect(callBody.html).toContain(reviewUrl);
+    });
+
+    it('should throw if internal email not configured', async () => {
+      config.internalEmail = '';
+      
+      await expect(
+        sendInternalNotification(mockStoredReport, reviewUrl, env, config)
+      ).rejects.toThrow('Internal email is not configured');
+    });
+
+    it('should throw if RESEND_FROM_EMAIL not configured', async () => {
+      const envWithoutResend = createMockEnv({
+        overrides: { RESEND_FROM_EMAIL: undefined },
+      });
+      
+      await expect(
+        sendInternalNotification(mockStoredReport, reviewUrl, envWithoutResend, config)
+      ).rejects.toThrow('RESEND_FROM_EMAIL is not configured');
+    });
+
+    it('should throw if RESEND_API_KEY not configured', async () => {
+      const envWithoutKey = createMockEnv({
+        overrides: { RESEND_API_KEY: undefined },
+      });
+      
+      await expect(
+        sendInternalNotification(mockStoredReport, reviewUrl, envWithoutKey, config)
+      ).rejects.toThrow('RESEND_API_KEY is not configured');
+    });
+
+    it('should throw on Resend API error', async () => {
+      const mockFetch = vi.fn().mockImplementation((input: string) => {
+        if (input === 'https://api.resend.com/emails') {
+          return Promise.resolve(new Response(JSON.stringify({ error: 'Invalid API key' }), { status: 401 }));
+        }
+        return Promise.resolve(new Response('not found', { status: 404 }));
+      });
+      globalThis.fetch = mockFetch;
+      
+      await expect(
+        sendInternalNotification(mockStoredReport, reviewUrl, env, config)
+      ).rejects.toThrow('Resend API error');
+    });
+
+    it('should handle multiple recipient emails', async () => {
+      config.internalEmail = 'user1@test.com, user2@test.com';
+      
+      const mockFetch = createGmailFetchMock();
+      globalThis.fetch = mockFetch;
+      
+      await sendInternalNotification(mockStoredReport, reviewUrl, env, config);
+      
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(callBody.to).toHaveLength(2);
+      expect(callBody.to).toContain('user1@test.com');
+      expect(callBody.to).toContain('user2@test.com');
+    });
+
+    it('should generate appropriate subject', async () => {
+      const mockFetch = createGmailFetchMock();
+      globalThis.fetch = mockFetch;
+      
+      await sendInternalNotification(mockStoredReport, reviewUrl, env, config);
+      
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(callBody.subject).toContain('ACQ リリース内容報告');
+      expect(callBody.subject).toContain('2024年1月15日');
+    });
+  });
+
+  describe('sendClientEmail', () => {
+    it('should send email via Gmail API', async () => {
+      const mockFetch = createGmailFetchMock();
+      globalThis.fetch = mockFetch;
+
+      await sendClientEmail('client@test.com', 'cc@test.com', 'Client Subject', 'Client Body', env);
+
       expect(mockFetch).toHaveBeenCalledWith(
         'https://oauth2.googleapis.com/token',
         expect.objectContaining({
@@ -115,157 +225,16 @@ describe('email', () => {
           }),
         })
       );
-    });
 
-    it('should include correct recipient', async () => {
-      const mockFetch = createGmailFetchMock();
-      globalThis.fetch = mockFetch;
-      
-      await sendInternalNotification(mockStoredReport, reviewUrl, env, config);
-      
       const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
       const mime = decodeBase64Url(callBody.raw);
-      expect(mime).toContain('To: internal@test.com');
+      expect(mime).toContain('To: client@test.com');
+      expect(mime).toContain('Cc: cc@test.com');
+      expect(mime).toContain('Subject: Client Subject');
+      expect(mime).toContain('Client Body');
     });
 
-    it('should include review URL in body', async () => {
-      const mockFetch = createGmailFetchMock();
-      globalThis.fetch = mockFetch;
-      
-      await sendInternalNotification(mockStoredReport, reviewUrl, env, config);
-      
-      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
-      const mime = decodeBase64Url(callBody.raw);
-      expect(mime).toContain(reviewUrl);
-    });
-
-    it('should throw if internal email not configured', async () => {
-      config.internalEmail = '';
-      
-      await expect(
-        sendInternalNotification(mockStoredReport, reviewUrl, env, config)
-      ).rejects.toThrow('Internal email is not configured');
-    });
-
-    it('should throw if GMAIL_SENDER_EMAIL not configured', async () => {
-      const envWithoutSender = createMockEnv({
-        overrides: { GMAIL_SENDER_EMAIL: undefined },
-      });
-      
-      await expect(
-        sendInternalNotification(mockStoredReport, reviewUrl, envWithoutSender, config)
-      ).rejects.toThrow('GMAIL_SENDER_EMAIL is not configured');
-    });
-
-    it('should throw if GMAIL_CLIENT_ID not configured', async () => {
-      const envWithoutId = createMockEnv({
-        overrides: { GMAIL_CLIENT_ID: undefined },
-      });
-      globalThis.fetch = createGmailFetchMock();
-      
-      await expect(
-        sendInternalNotification(mockStoredReport, reviewUrl, envWithoutId, config)
-      ).rejects.toThrow('GMAIL_CLIENT_ID is not configured');
-    });
-
-    it('should throw if GMAIL_CLIENT_SECRET not configured', async () => {
-      const envWithoutSecret = createMockEnv({
-        overrides: { GMAIL_CLIENT_SECRET: undefined },
-      });
-      globalThis.fetch = createGmailFetchMock();
-      
-      await expect(
-        sendInternalNotification(mockStoredReport, reviewUrl, envWithoutSecret, config)
-      ).rejects.toThrow('GMAIL_CLIENT_SECRET is not configured');
-    });
-
-    it('should throw if GMAIL_REFRESH_TOKEN not configured', async () => {
-      const envWithoutRefresh = createMockEnv({
-        overrides: { GMAIL_REFRESH_TOKEN: undefined },
-      });
-      globalThis.fetch = createGmailFetchMock();
-      
-      await expect(
-        sendInternalNotification(mockStoredReport, reviewUrl, envWithoutRefresh, config)
-      ).rejects.toThrow('GMAIL_REFRESH_TOKEN is not configured');
-    });
-
-    it('should throw on Gmail token error', async () => {
-      const mockFetch = createGmailFetchMock({ tokenOk: false, tokenBody: 'bad token' });
-      globalThis.fetch = mockFetch;
-      
-      await expect(
-        sendInternalNotification(mockStoredReport, reviewUrl, env, config)
-      ).rejects.toThrow('Gmail token error');
-    });
-
-    it('should throw when Gmail token response has no access token', async () => {
-      const mockFetch = createGmailFetchMock({ tokenBody: '{}' });
-      globalThis.fetch = mockFetch;
-      
-      await expect(
-        sendInternalNotification(mockStoredReport, reviewUrl, env, config)
-      ).rejects.toThrow('Gmail token response missing access_token');
-    });
-
-    it('should throw on Gmail API error', async () => {
-      const mockFetch = createGmailFetchMock({ sendOk: false, sendBody: JSON.stringify({ error: 'Invalid' }) });
-      globalThis.fetch = mockFetch;
-      
-      await expect(
-        sendInternalNotification(mockStoredReport, reviewUrl, env, config)
-      ).rejects.toThrow('Gmail API error');
-    });
-
-    it('should handle multiple recipient emails', async () => {
-      config.internalEmail = 'user1@test.com, user2@test.com';
-      
-      const mockFetch = createGmailFetchMock();
-      globalThis.fetch = mockFetch;
-      
-      await sendInternalNotification(mockStoredReport, reviewUrl, env, config);
-      
-      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
-      const mime = decodeBase64Url(callBody.raw);
-      expect(mime).toContain('To: user1@test.com, user2@test.com');
-    });
-
-    it('should generate appropriate subject', async () => {
-      const mockFetch = createGmailFetchMock();
-      globalThis.fetch = mockFetch;
-      
-      await sendInternalNotification(mockStoredReport, reviewUrl, env, config);
-      
-      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
-      const mime = decodeBase64Url(callBody.raw);
-      expect(mime).toContain('Subject: 【2024年1月15日】ACQ リリース内容報告');
-    });
-    it('should use Gmail sender name when provided', async () => {
-      const mockFetch = createGmailFetchMock();
-      globalThis.fetch = mockFetch;
-      
-      await sendInternalNotification(mockStoredReport, reviewUrl, env, config);
-      
-      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
-      const mime = decodeBase64Url(callBody.raw);
-      expect(mime).toContain('From: Test Sender <test.sender@example.com>');
-    });
-
-    it('should fall back to sender email when name is empty', async () => {
-      const envWithoutName = createMockEnv({
-        overrides: { GMAIL_SENDER_NAME: '' },
-      });
-      const mockFetch = createGmailFetchMock();
-      globalThis.fetch = mockFetch;
-      
-      await sendInternalNotification(mockStoredReport, reviewUrl, envWithoutName, config);
-      
-      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
-      const mime = decodeBase64Url(callBody.raw);
-      expect(mime).toContain('From: test.sender@example.com');
-    });
-
-    it('should use Resend when Gmail config is missing', async () => {
+    it('should throw when Gmail is not configured', async () => {
       const envWithoutGmail = createMockEnv({
         overrides: {
           GMAIL_CLIENT_ID: undefined,
@@ -275,21 +244,37 @@ describe('email', () => {
           GMAIL_SENDER_NAME: undefined,
         },
       });
-      const mockFetch = createGmailFetchMock();
+
+      await expect(
+        sendClientEmail('client@test.com', null, 'Subject', 'Body', envWithoutGmail)
+      ).rejects.toThrow('Gmail is not configured');
+    });
+
+    it('should throw on Gmail token error', async () => {
+      const mockFetch = createGmailFetchMock({ tokenOk: false, tokenBody: 'bad token' });
       globalThis.fetch = mockFetch;
-      
-      await sendInternalNotification(mockStoredReport, reviewUrl, envWithoutGmail, config);
-      
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.resend.com/emails',
-        expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            Authorization: `Bearer ${env.RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
-          }),
-        })
-      );
+
+      await expect(
+        sendClientEmail('client@test.com', null, 'Subject', 'Body', env)
+      ).rejects.toThrow('Gmail token error');
+    });
+
+    it('should throw when Gmail token response has no access token', async () => {
+      const mockFetch = createGmailFetchMock({ tokenBody: '{}' });
+      globalThis.fetch = mockFetch;
+
+      await expect(
+        sendClientEmail('client@test.com', null, 'Subject', 'Body', env)
+      ).rejects.toThrow('Gmail token response missing access_token');
+    });
+
+    it('should throw on Gmail API error', async () => {
+      const mockFetch = createGmailFetchMock({ sendOk: false, sendBody: JSON.stringify({ error: 'Invalid' }) });
+      globalThis.fetch = mockFetch;
+
+      await expect(
+        sendClientEmail('client@test.com', null, 'Subject', 'Body', env)
+      ).rejects.toThrow('Gmail API error');
     });
   });
 
@@ -300,7 +285,7 @@ describe('email', () => {
       
       await sendNoTasksNotification('2024年1月15日', ['AT-100'], env, config);
       
-      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
     it('should include parent issues in body', async () => {
@@ -309,10 +294,9 @@ describe('email', () => {
       
       await sendNoTasksNotification('2024年1月15日', ['AT-100', 'AT-200'], env, config);
       
-      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
-      const mime = decodeBase64Url(callBody.raw);
-      expect(mime).toContain('AT-100');
-      expect(mime).toContain('AT-200');
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(callBody.text).toContain('AT-100');
+      expect(callBody.text).toContain('AT-200');
     });
 
     it('should have appropriate subject indicating no tasks', async () => {
@@ -321,9 +305,8 @@ describe('email', () => {
       
       await sendNoTasksNotification('2024年1月15日', ['AT-100'], env, config);
       
-      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
-      const mime = decodeBase64Url(callBody.raw);
-      expect(mime).toContain('Subject: 【2024年1月15日】ACQ リリース内容報告');
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(callBody.subject).toContain('ACQ リリース内容報告');
     });
 
     it('should throw if internal email not configured', async () => {
@@ -340,11 +323,10 @@ describe('email', () => {
       
       await sendNoTasksNotification('2024年1月15日', ['AT-100'], env, config);
       
-      const callBody = JSON.parse(mockFetch.mock.calls[1][1].body);
-      const mime = decodeBase64Url(callBody.raw);
-      expect(mime).toContain('Content-Type: text/plain');
-      expect(mime).toContain('Content-Type: text/html');
-      expect(mime).toContain('<!DOCTYPE html>');
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(callBody.text).toBeDefined();
+      expect(callBody.html).toBeDefined();
+      expect(callBody.html).toContain('<!DOCTYPE html>');
     });
   });
 });
