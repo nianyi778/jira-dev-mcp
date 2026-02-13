@@ -74,6 +74,22 @@ async function getEmailSendLogs(
   }));
 }
 
+async function getReviewSendStatus(env: Env, reviewUrl: string): Promise<{ operator: string; sentAt: string } | null> {
+  const results = await env.TOKEN_DB.prepare(
+    'SELECT operator, timestamp FROM email_send_logs WHERE review_url = ? AND success = 1 AND details LIKE ? ORDER BY timestamp DESC LIMIT 1'
+  ).bind(reviewUrl, 'Client email sent%').all<{ operator: string; timestamp: number }>();
+
+  if (!results.results.length) {
+    return null;
+  }
+
+  const row = results.results[0];
+  return {
+    operator: row.operator,
+    sentAt: new Date(row.timestamp).toISOString(),
+  };
+}
+
 const LAST_CONFIRMED_SEND_TIME_KEY = 'email:lastConfirmedSendTime';
 
 async function getLastConfirmedSendTime(env: Env): Promise<Date | null> {
@@ -229,6 +245,32 @@ export default {
       }
     }
 
+    const statusMatch = pathname.match(/^\/review\/([a-zA-Z0-9-]+)\/status$/);
+    if (statusMatch && request.method === 'GET') {
+      const token = statusMatch[1];
+      try {
+        const report = await getReport(token, env);
+        if (!report) {
+          return jsonResponse({ error: 'Report not found or expired' }, 404);
+        }
+
+        const reviewUrl = `${env.WORKER_BASE_URL}/review/${report.id}`;
+        const status = await getReviewSendStatus(env, reviewUrl);
+        if (!status) {
+          return jsonResponse({ sent: false });
+        }
+
+        return jsonResponse({
+          sent: true,
+          operator: status.operator,
+          sentAt: status.sentAt,
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return jsonResponse({ error: errorMessage }, 500);
+      }
+    }
+
     const sendMatch = pathname.match(/^\/review\/([a-zA-Z0-9-]+)\/send$/);
     if (sendMatch && request.method === 'POST') {
       const token = sendMatch[1];
@@ -261,12 +303,14 @@ export default {
 
         const todayKey = getTodayDateKey(env.TIMEZONE);
         const reviewUrl = `${env.WORKER_BASE_URL}/review/${report.id}`;
-        await logEmailSend(env, todayKey, 'manual', 'Review Page', true, 'Client email sent via Gmail', reviewUrl);
+        const operator = env.GMAIL_SENDER_NAME || env.GMAIL_SENDER_EMAIL || 'Review Page';
+        await logEmailSend(env, todayKey, 'manual', operator, true, 'Client email sent via Gmail', reviewUrl);
         return jsonResponse({ success: true });
       } catch (error) {
         const todayKey = getTodayDateKey(env.TIMEZONE);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        await logEmailSend(env, todayKey, 'manual', 'Review Page', false, `Client email failed: ${errorMessage}`);
+        const operator = env.GMAIL_SENDER_NAME || env.GMAIL_SENDER_EMAIL || 'Review Page';
+        await logEmailSend(env, todayKey, 'manual', operator, false, `Client email failed: ${errorMessage}`);
         return jsonResponse({ success: false, error: errorMessage }, 500);
       }
     }

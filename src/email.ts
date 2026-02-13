@@ -44,6 +44,33 @@ function base64UrlEncode(input: string): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
+function base64Encode(input: string): string {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(input);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+function isAscii(input: string): boolean {
+  for (let i = 0; i < input.length; i += 1) {
+    if (input.charCodeAt(i) > 127) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function encodeMimeHeader(value: string): string {
+  if (!value) return value;
+  if (isAscii(value)) return value;
+  return `=?UTF-8?B?${base64Encode(value)}?=`;
+}
+
 function escapeHtml(input: string): string {
   return input
     .replace(/&/g, '&amp;')
@@ -62,11 +89,12 @@ function buildMimeMessage(
   from: string
 ): string {
   const boundary = `boundary_${crypto.randomUUID()}`;
+  const encodedSubject = encodeMimeHeader(subject);
   const headers = [
     `From: ${from}`,
     `To: ${to}`,
     cc ? `Cc: ${cc}` : '',
-    `Subject: ${subject}`,
+    `Subject: ${encodedSubject}`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
     '',
@@ -151,7 +179,7 @@ async function sendViaGmail(
 
   const fromName = env.GMAIL_SENDER_NAME ? env.GMAIL_SENDER_NAME.trim() : '';
   const from = fromName
-    ? `${fromName} <${env.GMAIL_SENDER_EMAIL}>`
+    ? `${encodeMimeHeader(fromName)} <${env.GMAIL_SENDER_EMAIL}>`
     : env.GMAIL_SENDER_EMAIL;
 
   const accessToken = await getGmailAccessToken(env);

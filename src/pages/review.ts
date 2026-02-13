@@ -397,6 +397,87 @@ export function generateReviewPage(report: StoredReport): string {
       border: 1px solid rgba(248, 113, 113, 0.2);
     }
 
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 20;
+      backdrop-filter: blur(6px);
+    }
+
+    .modal {
+      width: min(720px, 100%);
+      background: var(--card);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .modal-body {
+      padding: 20px 24px;
+      display: grid;
+      gap: 12px;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .modal-row {
+      display: grid;
+      gap: 6px;
+    }
+
+    .modal-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .modal-value {
+      color: var(--text-primary);
+      font-weight: 500;
+      word-break: break-word;
+    }
+
+    .modal-body pre {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      max-height: 280px;
+      overflow: auto;
+      white-space: pre-wrap;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 12px;
+      color: var(--text-primary);
+    }
+
+    .modal-actions {
+      padding: 16px 24px 24px;
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-primary);
+      border: 1px solid var(--border-strong);
+      box-shadow: none;
+    }
+
     @media (max-width: 600px) {
       body {
         padding: 16px;
@@ -492,21 +573,43 @@ export function generateReviewPage(report: StoredReport): string {
       </div>
       
       <div class="actions">
-        <span class="actions-hint">クリックするとメールが送信されます</span>
-        <button type="button" class="btn btn-primary" id="sendEmailBtn" onclick="sendClientEmail()">
+        <span class="actions-hint" id="sendHint">クリックするとメールが送信されます</span>
+        <button type="button" class="btn btn-primary" id="sendEmailBtn" onclick="openPreview()">
           メールを送信
         </button>
       </div>
       
       <div class="confirm-section" id="confirmSection" style="display: none;">
-        <p class="confirm-hint">已发送邮件，正在记录发送确认。</p>
-        <button class="confirm-send-btn" id="confirmSendBtn" type="button" disabled onclick="confirmEmailSent()">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L10.5 16.5L18 7.5" />
-          </svg>
-          <span id="confirmSendLabel">我已发送</span>
-        </button>
+        <p class="confirm-hint" id="confirmSendLabel">已发送邮件，正在记录发送确认。</p>
         <div id="confirmNotification"></div>
+      </div>
+
+      <div class="modal-overlay" id="previewModal" aria-hidden="true">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
+          <div class="modal-header" id="previewTitle">送信前プレビュー</div>
+          <div class="modal-body">
+            <div class="modal-row">
+              <div class="modal-label">To</div>
+              <div class="modal-value" id="previewTo"></div>
+            </div>
+            <div class="modal-row">
+              <div class="modal-label">CC</div>
+              <div class="modal-value" id="previewCc"></div>
+            </div>
+            <div class="modal-row">
+              <div class="modal-label">件名</div>
+              <div class="modal-value" id="previewSubject"></div>
+            </div>
+            <div class="modal-row">
+              <div class="modal-label">本文</div>
+              <pre id="previewBody"></pre>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" onclick="closePreview()">キャンセル</button>
+            <button type="button" class="btn btn-primary" id="confirmSendBtn" onclick="sendClientEmail()">送信する</button>
+          </div>
+        </div>
       </div>
 
       <div class="footer">
@@ -566,7 +669,49 @@ export function generateReviewPage(report: StoredReport): string {
       render();
     })();
 
+    function openPreview() {
+      var sendBtn = document.getElementById('sendEmailBtn');
+      if (sendBtn && sendBtn.disabled) return;
+
+      var to = document.getElementById('to').value.trim();
+      var cc = document.getElementById('cc').value.trim();
+      var subject = document.getElementById('subject').value.trim();
+      var body = document.getElementById('body').value;
+
+      if (!to) {
+        alert('宛先を入力してください');
+        return;
+      }
+      if (!subject) {
+        alert('件名を入力してください');
+        return;
+      }
+
+      var modal = document.getElementById('previewModal');
+      var previewTo = document.getElementById('previewTo');
+      var previewCc = document.getElementById('previewCc');
+      var previewSubject = document.getElementById('previewSubject');
+      var previewBody = document.getElementById('previewBody');
+      if (previewTo) previewTo.textContent = to;
+      if (previewCc) previewCc.textContent = cc || '-';
+      if (previewSubject) previewSubject.textContent = subject;
+      if (previewBody) previewBody.textContent = body;
+      if (modal) {
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
+      }
+    }
+
+    function closePreview() {
+      var modal = document.getElementById('previewModal');
+      if (modal) {
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+      }
+    }
+
     function sendClientEmail() {
+      closePreview();
       const to = document.getElementById('to').value.trim();
       const cc = document.getElementById('cc').value.trim();
       const subject = document.getElementById('subject').value.trim();
@@ -575,8 +720,10 @@ export function generateReviewPage(report: StoredReport): string {
       var cs = document.getElementById('confirmSection');
       var notif = document.getElementById('confirmNotification');
       var label = document.getElementById('confirmSendLabel');
-      var cb = document.getElementById('confirmSendBtn');
+      var hint = document.getElementById('sendHint');
+      var confirmBtn = document.getElementById('confirmSendBtn');
       if (sendBtn) sendBtn.disabled = true;
+      if (confirmBtn) confirmBtn.disabled = true;
       
       if (!to) {
         alert('宛先を入力してください');
@@ -602,7 +749,7 @@ export function generateReviewPage(report: StoredReport): string {
         })
         .then(function() {
           if (cs) cs.style.display = 'block';
-          if (label) label.textContent = '确认中...';
+          if (label) label.textContent = '发送成功，正在记录发送确认。';
           if (notif) {
             notif.className = 'confirm-notification';
             notif.textContent = '';
@@ -611,9 +758,10 @@ export function generateReviewPage(report: StoredReport): string {
         })
         .catch(function(err) {
           if (sendBtn) sendBtn.disabled = false;
+          if (confirmBtn) confirmBtn.disabled = false;
           if (cs) cs.style.display = 'block';
-          if (label) label.textContent = '我已发送';
-          if (cb) cb.disabled = false;
+          if (label) label.textContent = '发送失败，未记录确认。';
+          if (hint) hint.textContent = '发送失败，请检查配置后重试';
           if (notif) {
             notif.className = 'confirm-notification error';
             notif.textContent = '发送失败: ' + err.message;
@@ -622,12 +770,10 @@ export function generateReviewPage(report: StoredReport): string {
     }
 
     function confirmEmailSent() {
-      var btn = document.getElementById('confirmSendBtn');
       var label = document.getElementById('confirmSendLabel');
       var notif = document.getElementById('confirmNotification');
-      if (!btn || !label || !notif) return;
+      if (!label || !notif) return;
 
-      btn.disabled = true;
       label.textContent = '确认中...';
 
       var token = window.location.pathname.split('/')[2];
@@ -640,18 +786,53 @@ export function generateReviewPage(report: StoredReport): string {
           return res.json();
         })
         .then(function() {
-          label.textContent = '✓ 已确认';
-          btn.classList.add('confirmed');
+          label.textContent = '✓ 发送确认已记录';
           notif.className = 'confirm-notification success';
           notif.textContent = '发送确认已记录，感谢！';
+          fetchSendStatus();
         })
         .catch(function(err) {
-          btn.disabled = false;
-          label.textContent = '我已发送';
+          label.textContent = '确认失败';
           notif.className = 'confirm-notification error';
           notif.textContent = '确认失败: ' + err.message;
         });
     }
+
+    function fetchSendStatus() {
+      var token = window.location.pathname.split('/')[2];
+      var sendBtn = document.getElementById('sendEmailBtn');
+      var confirmBtn = document.getElementById('confirmSendBtn');
+      var cs = document.getElementById('confirmSection');
+      var label = document.getElementById('confirmSendLabel');
+      var notif = document.getElementById('confirmNotification');
+      var hint = document.getElementById('sendHint');
+
+      fetch('/review/' + token + '/status')
+        .then(function(res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        })
+        .then(function(data) {
+          if (!data || !data.sent) return;
+          if (sendBtn) sendBtn.disabled = true;
+          if (confirmBtn) confirmBtn.disabled = true;
+          if (hint) hint.textContent = '邮件已发送，发送按钮已锁定';
+          if (cs) cs.style.display = 'block';
+          var sentAt = data.sentAt ? new Date(data.sentAt) : null;
+          var sentAtText = sentAt
+            ? sentAt.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
+            : '--';
+          var operator = data.operator || 'Unknown';
+          if (label) label.textContent = '✓ 已发送';
+          if (notif) {
+            notif.className = 'confirm-notification success';
+            notif.textContent = '发送人: ' + operator + ' / 发送时间: ' + sentAtText;
+          }
+        })
+        .catch(function() {});
+    }
+
+    fetchSendStatus();
   </script>
 </body>
 </html>`;
