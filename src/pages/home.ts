@@ -782,7 +782,7 @@ export function generateHomePage(baseUrl: string, brandName?: string, brandUrl?:
             <h4>Slack 未完成任务提醒</h4>
             <p>发送 @channel 通知到 Slack 频道</p>
             <div class="schedule-time">
-              <strong>18:30</strong> JST · 周一至周五
+              <strong>18:35</strong> JST · 周一至周五
             </div>
           </div>
         </div>
@@ -798,7 +798,7 @@ export function generateHomePage(baseUrl: string, brandName?: string, brandUrl?:
             <h4>每日完成任务邮件报告</h4>
             <p>汇总当日完成任务并生成报告</p>
             <div class="schedule-time">
-              <strong>20:00</strong> JST · 周一至周五
+              <strong>18:30</strong> JST · 周一至周五
             </div>
           </div>
         </div>

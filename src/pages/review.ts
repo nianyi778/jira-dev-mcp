@@ -312,6 +312,91 @@ export function generateReviewPage(report: StoredReport): string {
       white-space: nowrap;
     }
     
+    .confirm-section {
+      padding: 0 32px 24px;
+      text-align: center;
+      animation: confirmFadeIn 0.3s ease-out;
+    }
+
+    @keyframes confirmFadeIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .confirm-hint {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+
+    .confirm-send-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #fff;
+      transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s;
+      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+    }
+
+    .confirm-send-btn:hover:not(:disabled) {
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+      opacity: 0.95;
+    }
+
+    .confirm-send-btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .confirm-send-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .confirm-send-btn.confirmed {
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+      box-shadow: none;
+    }
+
+    .confirm-send-btn svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    .confirm-notification {
+      margin-top: 12px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.4;
+      animation: confirmFadeIn 0.3s ease-out;
+    }
+
+    .confirm-notification.success {
+      background: rgba(16, 185, 129, 0.12);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .confirm-notification.error {
+      background: var(--error-bg);
+      color: var(--error-text);
+      border: 1px solid rgba(248, 113, 113, 0.2);
+    }
+
     @media (max-width: 600px) {
       body {
         padding: 16px;
@@ -413,6 +498,17 @@ export function generateReviewPage(report: StoredReport): string {
         </button>
       </div>
       
+      <div class="confirm-section" id="confirmSection" style="display: none;">
+        <p class="confirm-hint">邮件客户端已打开。发送完成后，请点击下方按钮确认。</p>
+        <button class="confirm-send-btn" id="confirmSendBtn" type="button" disabled onclick="confirmEmailSent()">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L10.5 16.5L18 7.5" />
+          </svg>
+          <span id="confirmSendLabel">我已发送</span>
+        </button>
+        <div id="confirmNotification"></div>
+      </div>
+
       <div class="footer">
         有効期限: ${escapeHtml(new Date(report.expiresAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }))}
       </div>
@@ -504,6 +600,43 @@ export function generateReviewPage(report: StoredReport): string {
       
       // Open mail client
       window.location.href = mailtoUrl;
+
+      var cs = document.getElementById('confirmSection');
+      if (cs) cs.style.display = 'block';
+      var cb = document.getElementById('confirmSendBtn');
+      if (cb) cb.disabled = false;
+    }
+
+    function confirmEmailSent() {
+      var btn = document.getElementById('confirmSendBtn');
+      var label = document.getElementById('confirmSendLabel');
+      var notif = document.getElementById('confirmNotification');
+      if (!btn || !label || !notif) return;
+
+      btn.disabled = true;
+      label.textContent = '确认中...';
+
+      var token = window.location.pathname.split('/')[2];
+      fetch('/review/' + token + '/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+        .then(function(res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        })
+        .then(function() {
+          label.textContent = '✓ 已确认';
+          btn.classList.add('confirmed');
+          notif.className = 'confirm-notification success';
+          notif.textContent = '发送确认已记录，感谢！';
+        })
+        .catch(function(err) {
+          btn.disabled = false;
+          label.textContent = '我已发送';
+          notif.className = 'confirm-notification error';
+          notif.textContent = '确认失败: ' + err.message;
+        });
     }
   </script>
 </body>

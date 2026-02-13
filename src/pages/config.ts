@@ -61,9 +61,9 @@ export function getCurrentConfig(input: ConfigPageInput): SystemConfig {
     featureEmailReport: input.FEATURE_EMAIL_REPORT !== 'false',
     featureSlackReminder: input.FEATURE_SLACK_REMINDER !== 'false',
     slackCronHour: 18,
-    slackCronMinute: 30,
-    emailCronHour: 20,
-    emailCronMinute: 0,
+    slackCronMinute: 35,
+    emailCronHour: 18,
+    emailCronMinute: 30,
     internalEmail: input.INTERNAL_EMAIL || '',
     defaultClientEmail: input.DEFAULT_CLIENT_EMAIL || '',
     defaultCcEmail: input.DEFAULT_CC_EMAIL || '',
@@ -938,6 +938,122 @@ export function generateConfigPage(input: ConfigPageInput, baseUrl: string): str
       box-shadow: 0 6px 18px rgba(239, 68, 68, 0.3);
     }
 
+    .email-send-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, var(--accent-orange), #f97316);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .email-send-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(245, 158, 11, 0.3);
+    }
+
+    .email-send-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .email-send-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .email-logs-table-wrap {
+      overflow-x: auto;
+      margin-top: 16px;
+    }
+
+    .email-logs-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .email-logs-table th {
+      text-align: left;
+      padding: 10px 12px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .email-logs-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+
+    .email-logs-table tr:hover td {
+      background: var(--bg-tertiary);
+    }
+
+    .log-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .log-badge.auto {
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--accent-green);
+    }
+
+    .log-badge.manual {
+      background: rgba(59, 130, 246, 0.12);
+      color: var(--accent-blue);
+    }
+
+    .log-badge.confirmed {
+      background: rgba(6, 182, 212, 0.12);
+      color: #06b6d4;
+    }
+
+    .log-badge.success {
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--accent-green);
+    }
+
+    .log-badge.fail {
+      background: rgba(239, 68, 68, 0.12);
+      color: var(--accent-red);
+    }
+
+    .email-logs-loading,
+    .email-logs-empty {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .email-logs-empty svg {
+      width: 36px;
+      height: 36px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+
     .token-loading,
     .token-empty {
       text-align: center;
@@ -1532,7 +1648,16 @@ export function generateConfigPage(input: ConfigPageInput, baseUrl: string): str
           </span>
           <span class="nav-text">邮件收件人</span>
         </a>
-        <a href="#jira" class="nav-item" data-target="jira" style="--delay: 0.25s; --accent: var(--accent-blue);">
+        <a href="#email-logs" class="nav-item" data-target="email-logs" style="--delay: 0.25s; --accent: var(--accent-cyan);">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </span>
+          <span class="nav-text">邮件发送记录</span>
+        </a>
+        <a href="#jira" class="nav-item" data-target="jira" style="--delay: 0.3s; --accent: var(--accent-blue);">
           <span class="nav-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 2L2 7l10 5 10-5-10-5z"/>
@@ -1542,7 +1667,7 @@ export function generateConfigPage(input: ConfigPageInput, baseUrl: string): str
           </span>
           <span class="nav-text">Jira 配置</span>
         </a>
-        <a href="#other" class="nav-item" data-target="other" style="--delay: 0.3s; --accent: var(--accent-purple);">
+        <a href="#other" class="nav-item" data-target="other" style="--delay: 0.35s; --accent: var(--accent-purple);">
           <span class="nav-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="3"/>
@@ -1552,7 +1677,7 @@ export function generateConfigPage(input: ConfigPageInput, baseUrl: string): str
           <span class="nav-text">其他设置</span>
         </a>
         ${input.IS_SUPER_ADMIN ? `
-        <a href="#tokens" class="nav-item" data-target="tokens" style="--delay: 0.35s; --accent: var(--accent-red);">
+        <a href="#tokens" class="nav-item" data-target="tokens" style="--delay: 0.4s; --accent: var(--accent-red);">
           <span class="nav-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
@@ -1561,7 +1686,7 @@ export function generateConfigPage(input: ConfigPageInput, baseUrl: string): str
           </span>
           <span class="nav-text">授权码管理</span>
         </a>
-        <a href="#logs" class="nav-item" data-target="logs" style="--delay: 0.4s; --accent: var(--accent-blue);">
+        <a href="#logs" class="nav-item" data-target="logs" style="--delay: 0.45s; --accent: var(--accent-blue);">
           <span class="nav-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 3v18h18"/>
@@ -1640,7 +1765,7 @@ export function generateConfigPage(input: ConfigPageInput, baseUrl: string): str
           </div>
           <div class="toggle-info">
             <h3>每日邮件报告</h3>
-            <p>每天 20:00 JST 汇总完成的任务并发送邮件报告</p>
+            <p>每天 18:30 JST 汇总完成的任务并发送邮件报告</p>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="featureEmailReport" ${config.featureEmailReport ? 'checked' : ''} onchange="updateToggleStatus(this)">
@@ -1664,7 +1789,7 @@ export function generateConfigPage(input: ConfigPageInput, baseUrl: string): str
           </div>
           <div class="toggle-info">
             <h3>Slack 未完成任务提醒</h3>
-            <p>每天 18:30 JST 发送未完成任务提醒到 Slack 频道</p>
+            <p>每天 18:35 JST 发送未完成任务提醒到 Slack 频道</p>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="featureSlackReminder" ${config.featureSlackReminder ? 'checked' : ''} onchange="updateToggleStatus(this)">
@@ -1821,6 +1946,59 @@ export function generateConfigPage(input: ConfigPageInput, baseUrl: string): str
           <input type="text" class="form-input mono" id="ccEmail" value="${config.defaultCcEmail}" placeholder="cc1@example.com, cc2@example.com" />
           <span class="form-hint">多个邮箱用逗号分隔</span>
         </div>
+      </div>
+
+      <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">
+        <button class="email-send-btn" type="button" id="manualEmailSendBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="4" width="20" height="16" rx="2"/>
+            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+          </svg>
+          <span id="manualEmailSendLabel">手动发送邮件</span>
+        </button>
+        <span class="form-hint" style="margin-top: 8px; display: block;">立即触发邮件报告发送。手动发送后，当天的自动定时发送将跳过。</span>
+      </div>
+    </div>
+    
+      <!-- Email Send Logs -->
+      <div class="section config-section" id="email-logs">
+      <div class="section-header">
+        <div class="section-icon" style="background: rgba(6, 182, 212, 0.12); color: var(--accent-cyan);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <div class="section-info">
+          <h2>邮件发送记录</h2>
+          <p>查看邮件发送历史，包括触发方式和操作人</p>
+        </div>
+      </div>
+
+      <div class="email-logs-loading" id="emailLogsLoading">
+        <p>加载中...</p>
+      </div>
+      <div class="email-logs-empty" id="emailLogsEmpty" style="display: none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="4" width="20" height="16" rx="2"/>
+          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+        </svg>
+        <p>暂无发送记录</p>
+      </div>
+      <div class="email-logs-table-wrap" id="emailLogsTableWrap" style="display: none;">
+        <table class="email-logs-table">
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>触发方式</th>
+              <th>操作人</th>
+              <th>状态</th>
+              <th>详情</th>
+              <th>时间</th>
+            </tr>
+          </thead>
+          <tbody id="emailLogsTableBody"></tbody>
+        </table>
       </div>
     </div>
     
@@ -2117,6 +2295,9 @@ export function generateConfigPage(input: ConfigPageInput, baseUrl: string): str
         }
         if (activeId === 'logs') {
           fetchLogs();
+        }
+        if (activeId === 'email-logs') {
+          loadEmailLogs();
         }
       }
 
@@ -2835,6 +3016,94 @@ export function generateConfigPage(input: ConfigPageInput, baseUrl: string): str
       
       btn.disabled = false;
     }
+    let emailLogsLoaded = false;
+
+    function setEmailLogsView(state) {
+      const loading = document.getElementById('emailLogsLoading');
+      const empty = document.getElementById('emailLogsEmpty');
+      const table = document.getElementById('emailLogsTableWrap');
+      if (!loading || !empty || !table) return;
+      loading.style.display = state === 'loading' ? 'block' : 'none';
+      empty.style.display = state === 'empty' ? 'block' : 'none';
+      table.style.display = state === 'table' ? 'block' : 'none';
+    }
+
+    async function loadEmailLogs() {
+      if (emailLogsLoaded) return;
+      setEmailLogsView('loading');
+      try {
+        const res = await fetch('/admin/email-logs?days=30');
+        if (res.status === 401) {
+          window.location.href = '/login?redirect=/config%23email-logs&error=' + encodeURIComponent('会话已过期，请重新登录');
+          return;
+        }
+        const data = await res.json();
+        if (!data.success || !data.logs || data.logs.length === 0) {
+          setEmailLogsView('empty');
+          emailLogsLoaded = true;
+          return;
+        }
+        renderEmailLogs(data.logs);
+        setEmailLogsView('table');
+        emailLogsLoaded = true;
+      } catch (e) {
+        setEmailLogsView('empty');
+      }
+    }
+
+    function renderEmailLogs(logs) {
+      const body = document.getElementById('emailLogsTableBody');
+      if (!body) return;
+      body.innerHTML = '';
+      logs.forEach(function(log) {
+        const row = document.createElement('tr');
+        var triggerClass = log.triggerType === 'confirmed' ? 'confirmed' : (log.triggerType === 'auto' ? 'auto' : 'manual');
+        var triggerLabel = log.triggerType === 'confirmed' ? '已确认' : (log.triggerType === 'auto' ? '自动' : '手动');
+        var statusClass = log.success ? 'success' : 'fail';
+        var statusLabel = log.success ? '成功' : '失败';
+        var ts = new Date(log.timestamp);
+        var timeStr = ts.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+
+        row.innerHTML =
+          '<td>' + escapeHtml(log.date) + '</td>' +
+          '<td><span class="log-badge ' + triggerClass + '">' + triggerLabel + '</span></td>' +
+          '<td>' + escapeHtml(log.operator) + '</td>' +
+          '<td><span class="log-badge ' + statusClass + '">' + statusLabel + '</span></td>' +
+          '<td>' + escapeHtml(log.details || '-') + '</td>' +
+          '<td>' + escapeHtml(timeStr) + '</td>';
+        body.appendChild(row);
+      });
+    }
+
+    (function initManualEmailSend() {
+      var btn = document.getElementById('manualEmailSendBtn');
+      if (!btn) return;
+      btn.addEventListener('click', async function() {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        var label = document.getElementById('manualEmailSendLabel');
+        var origText = label.textContent;
+        label.textContent = '发送中...';
+        try {
+          var res = await fetch('/api/email/send', { method: 'POST' });
+          if (res.status === 401) {
+            window.location.href = '/login?redirect=/config%23email&error=' + encodeURIComponent('会话已过期，请重新登录');
+            return;
+          }
+          var data = await res.json();
+          if (data.success) {
+            showToast('邮件发送成功' + (data.totalCompleted > 0 ? '（' + data.totalCompleted + ' 个任务）' : ''), 'success');
+            emailLogsLoaded = false;
+          } else {
+            showToast(data.error || '发送失败', 'error');
+          }
+        } catch (e) {
+          showToast('网络错误，请重试', 'error');
+        }
+        label.textContent = origText;
+        btn.disabled = false;
+      });
+    })();
   </script>
 </body>
 </html>`;

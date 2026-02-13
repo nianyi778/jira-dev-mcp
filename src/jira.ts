@@ -136,19 +136,43 @@ function isDoneStatus(statusName: string): boolean {
   return status === 'done' || status === '完成' || status.includes('done');
 }
 
-/**
- * Find subtasks that were completed today
- * Translates Chinese summaries to Japanese
- */
-async function findTodayCompletedSubtasks(
+function getStartOfToday(timezone: string): Date {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(now);
+  const get = (type: string) => parts.find(p => p.type === type)?.value || '0';
+  const y = Number(get('year'));
+  const m = Number(get('month')) - 1;
+  const d = Number(get('day'));
+  const h = Number(get('hour'));
+  const min = Number(get('minute'));
+  const s = Number(get('second'));
+
+  const localNowMs = Date.UTC(y, m, d, h, min, s);
+  const utcNowMs = now.getTime();
+  const tzOffsetMs = localNowMs - utcNowMs;
+
+  const midnightLocalMs = Date.UTC(y, m, d, 0, 0, 0);
+  return new Date(midnightLocalMs - tzOffsetMs);
+}
+
+async function findCompletedSubtasksSince(
   subtasks: JiraIssue[],
+  sinceTime: Date,
   timezone: string
 ): Promise<CompletedSubtask[]> {
   const completed: CompletedSubtask[] = [];
 
   for (const subtask of subtasks) {
-    // First, check if the current status is Done
-    // If not, skip this subtask even if it was temporarily Done today
     const currentStatus = subtask.fields?.status?.name || '';
     if (!isDoneStatus(currentStatus)) {
       continue;
@@ -159,11 +183,8 @@ async function findTodayCompletedSubtasks(
       continue;
     }
 
-    // Find the most recent status change to Done that happened today
-    // We need to find when it was changed to the current Done status
     let completedAt: Date | null = null;
 
-    // Sort histories by date (oldest first) to find the transition to current Done status
     const sortedHistories = [...changelog.histories].sort(
       (a, b) => new Date(a.created).getTime() - new Date(b.created).getTime()
     );
@@ -172,19 +193,16 @@ async function findTodayCompletedSubtasks(
       for (const item of history.items) {
         if (item.field === 'status') {
           const toStatus = item.toString || '';
+          const changedAt = new Date(history.created);
           
-          if (isDoneStatus(toStatus) && isToday(history.created, timezone)) {
-            // Record this as the completion time
-            // Keep updating - we want the latest transition to Done today
-            completedAt = new Date(history.created);
+          if (isDoneStatus(toStatus) && changedAt > sinceTime) {
+            completedAt = changedAt;
           }
         }
       }
     }
 
-    // Only add if we found a Done transition today
     if (completedAt) {
-      // Translate Chinese summary to Japanese
       const originalSummary = subtask.fields?.summary || 'Unknown';
       const translatedSummary = await translateToJapanese(originalSummary);
       
@@ -198,7 +216,6 @@ async function findTodayCompletedSubtasks(
     }
   }
 
-  // Sort by completion time
   completed.sort(
     (a, b) => a.completedAtDate.getTime() - b.completedAtDate.getTime()
   );
@@ -234,11 +251,11 @@ function calculateProgress(subtasks: JiraIssue[]): {
  */
 export async function generateParentTaskReport(
   parentKey: string,
-  env: Env
+  env: Env,
+  sinceTime?: Date
 ): Promise<ParentTaskReport | null> {
   console.log(`Fetching data for parent task: ${parentKey}`);
 
-  // Fetch parent issue and subtasks in parallel
   const [parentIssue, subtasks] = await Promise.all([
     fetchParentIssue(parentKey, env),
     fetchSubtasks(parentKey, env),
@@ -246,18 +263,16 @@ export async function generateParentTaskReport(
 
   console.log(`Found ${subtasks.length} subtasks for ${parentKey}`);
 
-  // Find today's completed subtasks (with translation)
-  const completedToday = await findTodayCompletedSubtasks(subtasks, env.TIMEZONE);
+  const effectiveSince = sinceTime || getStartOfToday(env.TIMEZONE);
+  const completedToday = await findCompletedSubtasksSince(subtasks, effectiveSince, env.TIMEZONE);
   console.log(
-    `Found ${completedToday.length} subtasks completed today for ${parentKey}`
+    `Found ${completedToday.length} subtasks completed since ${effectiveSince.toISOString()} for ${parentKey}`
   );
 
-  // If no subtasks completed today, return null
   if (completedToday.length === 0) {
     return null;
   }
 
-  // Calculate progress
   const progress = calculateProgress(subtasks);
 
   return {

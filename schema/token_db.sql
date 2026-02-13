@@ -24,3 +24,17 @@ CREATE TABLE IF NOT EXISTS token_logs (
 
 CREATE INDEX IF NOT EXISTS idx_token_logs_timestamp ON token_logs (timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_token_logs_token ON token_logs (token);
+
+CREATE TABLE IF NOT EXISTS email_send_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  date TEXT NOT NULL,
+  trigger_type TEXT NOT NULL,
+  operator TEXT NOT NULL,
+  success INTEGER NOT NULL DEFAULT 1,
+  details TEXT,
+  review_url TEXT,
+  timestamp INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_send_logs_date ON email_send_logs (date DESC);
+CREATE INDEX IF NOT EXISTS idx_email_send_logs_timestamp ON email_send_logs (timestamp DESC);

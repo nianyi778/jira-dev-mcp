@@ -9,10 +9,10 @@ routes = [
 ]
 
 # Cron Triggers (Monday to Friday)
-# UTC 11:00 = JST 20:00 - Daily completed tasks email report
-# UTC 09:30 = JST 18:30 - Slack incomplete tasks reminder
+# UTC 09:30 = JST 18:30 - Daily completed tasks email report
+# UTC 09:35 = JST 18:35 - Slack incomplete tasks reminder
 [triggers]
-crons = ["0 11 * * 1-5", "30 9 * * 1-5"]
+crons = ["30 9 * * 1-5", "35 9 * * 1-5"]
 
 # KV namespace for storing reports, config, tokens, and logs
 [[kv_namespaces]]

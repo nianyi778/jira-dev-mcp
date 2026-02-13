@@ -25,12 +25,74 @@ import {
 } from './auth';
 import { getConfig, setConfig, validateConfig, getRawConfig, initializeConfig } from './config-store';
 
+function getTodayDateKey(timezone: string): string {
+  const now = new Date();
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}
+
+async function logEmailSend(
+  env: Env,
+  date: string,
+  triggerType: 'auto' | 'manual' | 'confirmed',
+  operator: string,
+  success: boolean,
+  details: string,
+  reviewUrl?: string
+): Promise<void> {
+  try {
+    await env.TOKEN_DB.prepare(
+      'INSERT INTO email_send_logs (date, trigger_type, operator, success, details, review_url, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(date, triggerType, operator, success ? 1 : 0, details, reviewUrl || null, Date.now()).run();
+  } catch (error) {
+    console.error('Failed to log email send:', error);
+  }
+}
+
+async function getEmailSendLogs(
+  env: Env,
+  days: number = 30
+): Promise<Array<{ id: number; date: string; triggerType: string; operator: string; success: boolean; details: string; reviewUrl: string | null; timestamp: string }>> {
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  const results = await env.TOKEN_DB.prepare(
+    'SELECT id, date, trigger_type, operator, success, details, review_url, timestamp FROM email_send_logs WHERE timestamp > ? ORDER BY timestamp DESC LIMIT 200'
+  ).bind(cutoff).all<{ id: number; date: string; trigger_type: string; operator: string; success: number; details: string; review_url: string | null; timestamp: number }>();
+
+  return results.results.map(row => ({
+    id: row.id,
+    date: row.date,
+    triggerType: row.trigger_type,
+    operator: row.operator,
+    success: !!row.success,
+    details: row.details,
+    reviewUrl: row.review_url,
+    timestamp: new Date(row.timestamp).toISOString(),
+  }));
+}
+
+const LAST_CONFIRMED_SEND_TIME_KEY = 'email:lastConfirmedSendTime';
+
+async function getLastConfirmedSendTime(env: Env): Promise<Date | null> {
+  const value = await env.REPORT_KV.get(LAST_CONFIRMED_SEND_TIME_KEY);
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+async function setLastConfirmedSendTime(env: Env, time: Date): Promise<void> {
+  await env.REPORT_KV.put(LAST_CONFIRMED_SEND_TIME_KEY, time.toISOString());
+}
+
 export default {
   /**
    * Scheduled handler - triggered by Cron
    * Two cron schedules:
-   * - "0 11 * * 1-5" = JST 20:00 (UTC 11:00) Mon-Fri → Daily completed tasks email
-   * - "30 9 * * 1-5" = JST 18:30 (UTC 09:30) Mon-Fri → Slack incomplete tasks reminder
+   * - "30 9 * * 1-5" = JST 18:30 (UTC 09:30) Mon-Fri → Daily completed tasks email
+   * - "35 9 * * 1-5" = JST 18:35 (UTC 09:35) Mon-Fri → Slack incomplete tasks reminder
    */
   async scheduled(
     event: ScheduledEvent,
@@ -50,25 +112,32 @@ export default {
       } catch (error) {
         console.warn('Token log cleanup failed:', error);
       }
-      // Determine which cron triggered this
-      if (event.cron === '30 9 * * 1-5') {
-        // JST 18:30 → Slack incomplete tasks reminder
-        // Check feature flag
+      if (event.cron === '35 9 * * 1-5') {
+        // JST 18:35 → Slack incomplete tasks reminder
         if (!config.featureSlackReminder) {
           console.log('Slack reminder is disabled (feature flag). Skipping.');
           return;
         }
         console.log('Running Slack incomplete tasks reminder...');
         await runSlackIncompleteTasksReminder(env, config);
-      } else {
-        // JST 20:00 → Daily completed tasks email (default)
-        // Check feature flag
+      } else if (event.cron === '30 9 * * 1-5') {
+        // JST 18:30 → Daily completed tasks email
         if (!config.featureEmailReport) {
           console.log('Email report is disabled (feature flag). Skipping.');
           return;
         }
+        // Check if email was already manually sent today
+        const todayKey = getTodayDateKey(env.TIMEZONE);
+        const manualSentToday = await env.REPORT_KV.get(`email_sent:${todayKey}:manual`);
+        if (manualSentToday) {
+          console.log('Email was already manually sent today. Skipping auto trigger.');
+          return;
+        }
         console.log('Running daily completed tasks email...');
-        await runMonitor(env, config, false);
+        const sinceTime = await getLastConfirmedSendTime(env);
+        await runMonitor(env, config, false, sinceTime || undefined);
+        await env.REPORT_KV.put(`email_sent:${todayKey}:auto`, new Date().toISOString(), { expirationTtl: 86400 });
+        await logEmailSend(env, todayKey, 'auto', 'System (Cron)', true, 'Auto-triggered at 18:30 JST');
       }
     } catch (error) {
       console.error('Monitor failed:', error);
@@ -137,6 +206,26 @@ export default {
           'レポートの取得中にエラーが発生しました。しばらくしてから再度お試しください。'
         );
         return htmlResponse(html, 500);
+      }
+    }
+
+    const confirmMatch = pathname.match(/^\/review\/([a-zA-Z0-9-]+)\/confirm$/);
+    if (confirmMatch && request.method === 'POST') {
+      const token = confirmMatch[1];
+      try {
+        const report = await getReport(token, env);
+        if (!report) {
+          return jsonResponse({ error: 'Report not found or expired' }, 404);
+        }
+        const confirmedAt = new Date();
+        await setLastConfirmedSendTime(env, confirmedAt);
+        const todayKey = getTodayDateKey(env.TIMEZONE);
+        await logEmailSend(env, todayKey, 'confirmed', 'Review Page', true, 'Client email send confirmed');
+        return jsonResponse({ success: true, confirmedAt: confirmedAt.toISOString() });
+      } catch (error) {
+        console.error('Error confirming email send:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return jsonResponse({ success: false, error: errorMessage }, 500);
       }
     }
 
@@ -284,8 +373,8 @@ export default {
           },
         },
         cron: {
-          email: 'JST 20:00 (UTC 11:00) Mon-Fri - Daily completed tasks email',
-          slack: 'JST 18:30 (UTC 09:30) Mon-Fri - Slack incomplete tasks reminder',
+          email: 'JST 18:30 (UTC 09:30) Mon-Fri - Daily completed tasks email',
+          slack: 'JST 18:35 (UTC 09:35) Mon-Fri - Slack incomplete tasks reminder',
         },
         featureFlags: {
           emailReport: config.featureEmailReport,
@@ -349,10 +438,20 @@ export default {
       console.log('=== Manual trigger via HTTP ===');
       const skipEmail = url.searchParams.get('skip_email') === 'true';
       const config = await getConfig(env);
+      const operatorName = auth.note || 'API User';
 
       try {
-        const result = await runMonitor(env, config, skipEmail);
+        const sinceTime = await getLastConfirmedSendTime(env);
+        const result = await runMonitor(env, config, skipEmail, sinceTime || undefined);
+        const todayKey = getTodayDateKey(env.TIMEZONE);
         
+        if (!skipEmail) {
+          await env.REPORT_KV.put(`email_sent:${todayKey}:manual`, new Date().toISOString(), { expirationTtl: 86400 });
+          await logEmailSend(env, todayKey, 'manual', operatorName, true, 
+            result.hasCompletedTasks ? `${result.totalCompleted} tasks completed` : 'No completed tasks', 
+            result.reviewUrl || undefined);
+        }
+
         if (!result.hasCompletedTasks) {
           return jsonResponse({
             success: true,
@@ -376,7 +475,40 @@ export default {
           parentTasks: result.parentTasks,
         });
       } catch (error) {
+        const todayKey = getTodayDateKey(env.TIMEZONE);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        await logEmailSend(env, todayKey, 'manual', operatorName, false, errorMessage);
+        return jsonResponse({ success: false, error: errorMessage }, 500);
+      }
+    }
+
+    // Manual email send from config page
+    if (pathname === '/api/email/send' && request.method === 'POST') {
+      const config = await getConfig(env);
+      const operatorName = auth.note || 'Unknown';
+      const todayKey = getTodayDateKey(env.TIMEZONE);
+
+      try {
+        const sinceTime = await getLastConfirmedSendTime(env);
+        const result = await runMonitor(env, config, false, sinceTime || undefined);
+        await env.REPORT_KV.put(`email_sent:${todayKey}:manual`, new Date().toISOString(), { expirationTtl: 86400 });
+        await logEmailSend(env, todayKey, 'manual', operatorName, true,
+          result.hasCompletedTasks ? `${result.totalCompleted} tasks completed` : 'No completed tasks',
+          result.reviewUrl || undefined);
+
+        return jsonResponse({
+          success: true,
+          message: result.hasCompletedTasks
+            ? 'Report generated and email sent'
+            : 'No completed tasks today, notification sent',
+          reviewUrl: result.reviewUrl,
+          date: result.date,
+          totalCompleted: result.totalCompleted,
+          operator: operatorName,
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        await logEmailSend(env, todayKey, 'manual', operatorName, false, errorMessage);
         return jsonResponse({ success: false, error: errorMessage }, 500);
       }
     }
@@ -441,6 +573,18 @@ export default {
     // ============================================
     // ADMIN ENDPOINTS
     // ============================================
+
+    // Admin: Email send logs
+    if (pathname === '/admin/email-logs' && request.method === 'GET') {
+      const days = parseInt(url.searchParams.get('days') || '30', 10);
+      const logs = await getEmailSendLogs(env, Math.min(days, 90));
+      return jsonResponse({
+        success: true,
+        days,
+        logs,
+        count: logs.length,
+      });
+    }
 
     // Admin: Token management page (HTML) - redirect to config section
     if (pathname === '/admin/tokens' && request.method === 'GET' && request.headers.get('Accept')?.includes('text/html')) {
@@ -677,7 +821,8 @@ async function generateConfigPageWithKV(env: Env, config: AppConfig, userNote?: 
 async function runMonitor(
   env: Env,
   config: AppConfig,
-  skipEmail: boolean = false
+  skipEmail: boolean = false,
+  sinceTime?: Date
 ): Promise<{
   reviewUrl: string | null;
   date: string;
@@ -721,10 +866,10 @@ async function runMonitor(
 
   for (const parentKey of parentIssues) {
     try {
-      const report = await generateParentTaskReport(parentKey, env);
+      const report = await generateParentTaskReport(parentKey, env, sinceTime);
       if (report) {
         reports.push(report);
-        console.log(`${parentKey}: ${report.completedToday.length} tasks completed today`);
+        console.log(`${parentKey}: ${report.completedToday.length} tasks completed${sinceTime ? ' since last confirmed send' : ' today'}`);
       } else {
         console.log(`${parentKey}: 0 tasks completed today`);
       }

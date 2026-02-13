@@ -66,8 +66,8 @@ export function getApiModules(baseUrl: string, supportEmail?: string): ApiModule
               '...': '...'
             },
             cron: {
-              email: 'JST 20:00 Mon-Fri',
-              slack: 'JST 18:30 Mon-Fri'
+              email: 'JST 18:30 Mon-Fri',
+              slack: 'JST 18:35 Mon-Fri'
             }
           },
           example: `curl ${baseUrl}/api`,
@@ -87,7 +87,7 @@ export function getApiModules(baseUrl: string, supportEmail?: string): ApiModule
       nameEn: 'Email',
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`,
       color: '#f59e0b',
-      description: '每日完成任务的邮件报告功能（JST 20:00 自动触发）',
+      description: '每日完成任务的邮件报告功能（JST 18:30 自动触发）',
       endpoints: [
         {
           method: 'GET',
@@ -129,6 +129,25 @@ export function getApiModules(baseUrl: string, supportEmail?: string): ApiModule
           auth: 'public',
         },
         {
+          method: 'POST',
+          path: '/review/:token/confirm',
+          description: '确认邮件已发送。用户在 review 页面点击「我已发送」后调用，记录确认时间并更新扫描区间起点',
+          params: [
+            {
+              name: 'token',
+              type: 'string',
+              required: true,
+              description: '报告的唯一标识符（UUID），与 review 页面 URL 中的 token 一致',
+            },
+          ],
+          responseJson: {
+            success: true,
+            confirmedAt: '2024-02-08T09:30:00.000Z',
+          },
+          example: `curl -X POST ${baseUrl}/review/abc123-def456/confirm`,
+          auth: 'public',
+        },
+        {
           method: 'GET',
           path: '/test/email',
           description: '使用模拟数据测试邮件发送功能',
@@ -149,6 +168,21 @@ export function getApiModules(baseUrl: string, supportEmail?: string): ApiModule
           example: `${baseUrl}/test/review`,
           auth: 'bearer',
         },
+        {
+          method: 'POST',
+          path: '/api/email/send',
+          description: '从配置页面手动触发邮件发送，记录操作人。若当天已手动发送，自动触发将跳过',
+          responseJson: {
+            success: true,
+            message: 'Report generated and email sent',
+            reviewUrl: `${baseUrl}/review/abc123-def456`,
+            date: '2024年2月8日',
+            totalCompleted: 5,
+            operator: 'admin'
+          },
+          example: `curl -X POST -H "Authorization: Bearer <TOKEN>" ${baseUrl}/api/email/send`,
+          auth: 'session-or-bearer',
+        },
       ],
     },
     {
@@ -156,7 +190,7 @@ export function getApiModules(baseUrl: string, supportEmail?: string): ApiModule
       nameEn: 'Slack',
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="13" y="2" width="3" height="8" rx="1.5"/><path d="M19 8.5V10h1.5A1.5 1.5 0 1 0 19 8.5"/><rect x="8" y="14" width="3" height="8" rx="1.5"/><path d="M5 15.5V14H3.5A1.5 1.5 0 1 0 5 15.5"/><rect x="14" y="13" width="8" height="3" rx="1.5"/><path d="M15.5 19H14v1.5a1.5 1.5 0 1 0 1.5-1.5"/><rect x="2" y="8" width="8" height="3" rx="1.5"/><path d="M8.5 5H10V3.5A1.5 1.5 0 1 0 8.5 5"/></svg>`,
       color: '#8b5cf6',
-      description: '未完成任务的 Slack 提醒功能（JST 18:30 自动触发）',
+      description: '未完成任务的 Slack 提醒功能（JST 18:35 自动触发）',
       endpoints: [
         {
           method: 'GET',
@@ -327,6 +361,30 @@ export function getApiModules(baseUrl: string, supportEmail?: string): ApiModule
           path: '/admin/logs/query',
           description: '查询访问日志（date/token/endpoint）',
           responseJson: { success: true, count: 0, logs: [] },
+          auth: 'session-or-bearer',
+        },
+        {
+          method: 'GET',
+          path: '/admin/email-logs',
+          description: '查询邮件发送记录，包括触发方式和操作人',
+          params: [
+            {
+              name: 'days',
+              type: 'number',
+              required: false,
+              description: '查询天数（默认 30，最大 90）',
+            },
+          ],
+          responseJson: {
+            success: true,
+            days: 30,
+            count: 2,
+            logs: [
+              { id: 1, date: '2024-02-08', triggerType: 'manual', operator: 'admin', success: true, details: '5 tasks completed', reviewUrl: `${baseUrl}/review/abc123`, timestamp: '2024-02-08T09:30:00.000Z' },
+              { id: 2, date: '2024-02-07', triggerType: 'auto', operator: 'System (Cron)', success: true, details: 'Auto-triggered at 18:30 JST', reviewUrl: null, timestamp: '2024-02-07T09:30:00.000Z' },
+            ]
+          },
+          example: `curl -H "Authorization: Bearer <TOKEN>" ${baseUrl}/admin/email-logs?days=7`,
           auth: 'session-or-bearer',
         },
       ],
