@@ -87,28 +87,28 @@ function escapeHtml(input: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function getExternalSignatureText(): string {
+function getExternalSignatureText(senderEmail: string): string {
   return [
-    '――――――――――――――――',
+    '--------------------',
     'ELESTYLE 株式会社',
     '陳 剣 / CHEN.J / TIN.K',
     'WEB : https://www.elestyle.jp',
-    'MAIL : os.bin.tang@elestyle.jp',
+    `MAIL : ${senderEmail}`,
     'TEL : 03-6222-9557',
     '〒110-0006',
     '東京都台東区秋葉原1-1',
     '秋葉原ビジネスセンター6階',
-    '――――――――――――――――',
+    '--------------------',
   ].join('\n');
 }
 
-function getExternalSignatureHtml(): string {
+function getExternalSignatureHtml(senderEmail: string): string {
   return `
     <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #475569; line-height: 1.6;">
       <div style="font-weight: 600; color: #0f172a;">ELESTYLE 株式会社</div>
       <div>陳 剣 / CHEN.J / TIN.K</div>
       <div>WEB : <a href="https://www.elestyle.jp" style="color: #0f172a; text-decoration: none;">https://www.elestyle.jp</a></div>
-      <div>MAIL : <a href="mailto:os.bin.tang@elestyle.jp" style="color: #0f172a; text-decoration: none;">os.bin.tang@elestyle.jp</a></div>
+      <div>MAIL : <a href="mailto:${senderEmail}" style="color: #0f172a; text-decoration: none;">${senderEmail}</a></div>
       <div>TEL : 03-6222-9557</div>
       <div>〒110-0006</div>
       <div>東京都台東区秋葉原1-1</div>
@@ -117,12 +117,12 @@ function getExternalSignatureHtml(): string {
   `;
 }
 
-function appendSignatureIfMissing(body: string): string {
+function appendSignatureIfMissing(body: string, senderEmail: string): string {
   if (body.includes('https://www.elestyle.jp')) {
     return body;
   }
   const trimmed = body.trimEnd();
-  return `${trimmed}\n\n${getExternalSignatureText()}`;
+  return `${trimmed}\n\n${getExternalSignatureText(senderEmail)}`;
 }
 
 function buildMimeMessage(
@@ -280,9 +280,14 @@ export async function sendInternalNotification(
     throw new Error('Internal email is not configured');
   }
 
+  const internalSenderEmail = env.GMAIL_INTERNAL_SENDER_EMAIL;
+  if (!internalSenderEmail) {
+    throw new Error('GMAIL_INTERNAL_SENDER_EMAIL is not configured');
+  }
+
   const subject = generateInternalNotificationSubject(storedReport.dailyReport);
-  const textBody = generateInternalNotificationBody(storedReport, reviewUrl);
-  const htmlBody = generateInternalNotificationBodyHtml(storedReport, reviewUrl, env.JIRA_BASE_URL);
+  const textBody = generateInternalNotificationBody(storedReport, reviewUrl, internalSenderEmail);
+  const htmlBody = generateInternalNotificationBodyHtml(storedReport, reviewUrl, env.JIRA_BASE_URL, internalSenderEmail);
 
   if (!hasInternalGmailConfig(env)) {
     throw new Error('Gmail internal sender is not configured');
@@ -306,6 +311,11 @@ export async function sendNoTasksNotification(
 ): Promise<void> {
   if (!config.internalEmail) {
     throw new Error('Internal email is not configured');
+  }
+
+  const internalSenderEmail = env.GMAIL_INTERNAL_SENDER_EMAIL;
+  if (!internalSenderEmail) {
+    throw new Error('GMAIL_INTERNAL_SENDER_EMAIL is not configured');
   }
 
   const subject = generateNoTasksNotificationSubject(date);
@@ -334,9 +344,14 @@ export async function sendClientEmail(
     throw new Error('Gmail external sender is not configured');
   }
 
-  const finalBody = appendSignatureIfMissing(body);
+  const senderEmail = env.GMAIL_SENDER_EMAIL;
+  if (!senderEmail) {
+    throw new Error('GMAIL_SENDER_EMAIL is not configured');
+  }
+
+  const finalBody = appendSignatureIfMissing(body, senderEmail);
   const safeBody = escapeHtml(finalBody).replace(/\r?\n/g, '<br />');
-  const signatureHtml = getExternalSignatureHtml();
+  const signatureHtml = getExternalSignatureHtml(senderEmail);
   const htmlBody = `<!DOCTYPE html>
 <html>
 <head>

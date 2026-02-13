@@ -169,7 +169,7 @@ describe('email', () => {
       
       await expect(
         sendInternalNotification(mockStoredReport, reviewUrl, envWithoutInternal, config)
-      ).rejects.toThrow('Gmail internal sender is not configured');
+      ).rejects.toThrow('GMAIL_INTERNAL_SENDER_EMAIL is not configured');
     });
 
     it('should throw on Gmail API error', async () => {

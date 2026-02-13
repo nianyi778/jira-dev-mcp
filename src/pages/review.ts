@@ -16,15 +16,27 @@ function escapeHtml(text: string): string {
  * Generate the review page HTML
  * Design: Clean, professional, minimal - no AI aesthetics
  */
-export function generateReviewPage(report: StoredReport): string {
+export function generateReviewPage(report: StoredReport, senderEmail: string): string {
   const { dailyReport, defaultTo, defaultCc, defaultSubject, defaultBody } = report;
+  const signatureText = [
+    '--------------------',
+    'ELESTYLE 株式会社',
+    '陳 剣 / CHEN.J / TIN.K',
+    'WEB : https://www.elestyle.jp',
+    `MAIL : ${senderEmail}`,
+    'TEL : 03-6222-9557',
+    '〒110-0006',
+    '東京都台東区秋葉原1-1',
+    '秋葉原ビジネスセンター6階',
+    '--------------------',
+  ].join('\n');
 
   // Calculate summary
   const parentTasks = dailyReport.reports.map((r) => r.parentKey).join(', ');
   const totalCompleted = dailyReport.totalCompletedToday;
 
   return `<!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -582,6 +594,7 @@ export function generateReviewPage(report: StoredReport): string {
             <textarea id="body">${escapeHtml(defaultBody)}</textarea>
           </div>
         </form>
+        <textarea id="signatureData" style="display: none;">${escapeHtml(signatureText)}</textarea>
       </div>
       
       <div class="actions">
@@ -677,18 +690,8 @@ export function generateReviewPage(report: StoredReport): string {
     })();
 
     function getExternalSignature() {
-      return [
-        '--------------------',
-        'ELESTYLE 株式会社',
-        '陳 剣 / CHEN.J / TIN.K',
-        'WEB : https://www.elestyle.jp',
-        'MAIL : os.bin.tang@elestyle.jp',
-        'TEL : 03-6222-9557',
-        '〒110-0006',
-        '東京都台東区秋葉原1-1',
-        '秋葉原ビジネスセンター6階',
-        '--------------------'
-      ].join('\n');
+      var el = document.getElementById('signatureData');
+      return el ? el.value : '';
     }
 
     function appendSignatureIfMissing(body) {

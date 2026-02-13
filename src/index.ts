@@ -213,7 +213,7 @@ export default {
           return htmlResponse(html, 404);
         }
 
-        const html = generateReviewPage(report);
+        const html = generateReviewPage(report, env.GMAIL_SENDER_EMAIL || '');
         return htmlResponse(html);
       } catch (error) {
         console.error('Error fetching report:', error);
@@ -603,7 +603,7 @@ export default {
     if (pathname === '/test/review') {
       const config = await getConfig(env);
       const mockReport = createMockReport(env, config);
-      const html = generateReviewPage(mockReport);
+      const html = generateReviewPage(mockReport, env.GMAIL_SENDER_EMAIL || '');
       return htmlResponse(html);
     }
 

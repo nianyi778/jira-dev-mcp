@@ -239,7 +239,8 @@ export function generateInternalNotificationSubject(report: DailyReport): string
  */
 export function generateInternalNotificationBody(
   storedReport: StoredReport,
-  reviewUrl: string
+  reviewUrl: string,
+  senderEmail: string
 ): string {
   const { dailyReport } = storedReport;
   const parentKeys = dailyReport.reports.map((r) => r.parentKey).join(', ');
@@ -249,7 +250,7 @@ export function generateInternalNotificationBody(
     'ELESTYLE 株式会社',
     '李 凯 / LI.K / RI.GI',
     'WEB : https://www.elestyle.jp',
-    'MAIL : os.bin.tang@elestyle.jp',
+    `MAIL : ${senderEmail}`,
     'TEL : 03-6222-9557',
     '〒110-0006',
     '東京都台東区秋葉原1-1',
@@ -293,7 +294,8 @@ ${separator}
 export function generateInternalNotificationBodyHtml(
   storedReport: StoredReport,
   reviewUrl: string,
-  jiraBaseUrl: string
+  jiraBaseUrl: string,
+  senderEmail: string
 ): string {
   const { dailyReport } = storedReport;
   const parentKeys = dailyReport.reports.map((r) => r.parentKey).join(', ');
@@ -303,7 +305,7 @@ export function generateInternalNotificationBodyHtml(
       <div style="font-weight: 600; color: #1a1a1a;">ELESTYLE 株式会社</div>
       <div>李 凯 / LI.K / RI.GI</div>
       <div>WEB : <a href="https://www.elestyle.jp" style="color: #1a1a1a; text-decoration: none;">https://www.elestyle.jp</a></div>
-      <div>MAIL : <a href="mailto:os.bin.tang@elestyle.jp" style="color: #1a1a1a; text-decoration: none;">os.bin.tang@elestyle.jp</a></div>
+      <div>MAIL : <a href="mailto:${senderEmail}" style="color: #1a1a1a; text-decoration: none;">${senderEmail}</a></div>
       <div>TEL : 03-6222-9557</div>
       <div>〒110-0006</div>
       <div>東京都台東区秋葉原1-1</div>

@@ -152,13 +152,13 @@ describe('template', () => {
     const reviewUrl = 'https://example.com/review/test-token-123';
 
     it('should include review URL', () => {
-      const body = generateInternalNotificationBody(mockStoredReport, reviewUrl);
+    const body = generateInternalNotificationBody(mockStoredReport, reviewUrl, 'kai.li@elestyle.jp');
       
       expect(body).toContain(reviewUrl);
     });
 
     it('should include report summary', () => {
-      const body = generateInternalNotificationBody(mockStoredReport, reviewUrl);
+    const body = generateInternalNotificationBody(mockStoredReport, reviewUrl, 'kai.li@elestyle.jp');
       
       expect(body).toContain('2024年01月15日');
       expect(body).toContain('AT-100');
@@ -166,13 +166,13 @@ describe('template', () => {
     });
 
     it('should include expiration notice', () => {
-      const body = generateInternalNotificationBody(mockStoredReport, reviewUrl);
+    const body = generateInternalNotificationBody(mockStoredReport, reviewUrl, 'kai.li@elestyle.jp');
       
       expect(body).toContain('24時間');
     });
 
     it('should include editing instructions', () => {
-      const body = generateInternalNotificationBody(mockStoredReport, reviewUrl);
+    const body = generateInternalNotificationBody(mockStoredReport, reviewUrl, 'kai.li@elestyle.jp');
       
       expect(body).toContain('編集');
     });
@@ -182,28 +182,28 @@ describe('template', () => {
     const reviewUrl = 'https://example.com/review/test-token-123';
 
     it('should return valid HTML', () => {
-    const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl, 'https://example.atlassian.net');
+    const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl, 'https://example.atlassian.net', 'kai.li@elestyle.jp');
       
       expect(html).toContain('<!DOCTYPE html>');
       expect(html).toContain('</html>');
     });
 
     it('should include clickable button with review URL', () => {
-    const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl, 'https://example.atlassian.net');
+    const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl, 'https://example.atlassian.net', 'kai.li@elestyle.jp');
       
       expect(html).toContain(`href="${reviewUrl}"`);
       expect(html).toContain('確認ページを開く');
     });
 
     it('should include summary stats', () => {
-    const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl, 'https://example.atlassian.net');
+    const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl, 'https://example.atlassian.net', 'kai.li@elestyle.jp');
       
       expect(html).toContain('完了タスク');
       expect(html).toContain('2'); // totalCompletedToday
     });
 
     it('should include task list', () => {
-    const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl, 'https://example.atlassian.net');
+    const html = generateInternalNotificationBodyHtml(mockStoredReport, reviewUrl, 'https://example.atlassian.net', 'kai.li@elestyle.jp');
       
       expect(html).toContain('Subtask 1');
       expect(html).toContain('AT-101');
