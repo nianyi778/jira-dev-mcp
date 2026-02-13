@@ -698,7 +698,7 @@ export function generateReviewPage(report: StoredReport, senderEmail: string): s
       if (body.indexOf('https://www.elestyle.jp') !== -1) {
         return body;
       }
-      return body.replace(/\s*$/, '') + '\n\n' + getExternalSignature();
+      return body.replace(/\\s*$/, '') + '\\n\\n' + getExternalSignature();
     }
 
     function openPreview() {
