@@ -400,7 +400,7 @@ export function generateReviewPage(report: StoredReport): string {
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.55);
+      background: rgba(2, 6, 23, 0.45);
       display: none;
       align-items: center;
       justify-content: center;
@@ -411,19 +411,20 @@ export function generateReviewPage(report: StoredReport): string {
 
     .modal {
       width: min(720px, 100%);
-      background: var(--card);
+      background: #ffffff;
+      color: #0f172a;
       border-radius: 16px;
-      border: 1px solid var(--border);
-      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      box-shadow: 0 28px 70px rgba(15, 23, 42, 0.35);
       overflow: hidden;
     }
 
     .modal-header {
       padding: 20px 24px;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid rgba(15, 23, 42, 0.12);
       font-size: 16px;
       font-weight: 600;
-      color: var(--text-primary);
+      color: #0f172a;
     }
 
     .modal-body {
@@ -431,7 +432,7 @@ export function generateReviewPage(report: StoredReport): string {
       display: grid;
       gap: 12px;
       font-size: 14px;
-      color: var(--text-secondary);
+      color: #475569;
     }
 
     .modal-row {
@@ -441,18 +442,18 @@ export function generateReviewPage(report: StoredReport): string {
 
     .modal-label {
       font-size: 12px;
-      color: var(--text-secondary);
+      color: #64748b;
     }
 
     .modal-value {
-      color: var(--text-primary);
+      color: #0f172a;
       font-weight: 500;
       word-break: break-word;
     }
 
     .modal-body pre {
-      background: var(--panel);
-      border: 1px solid var(--border);
+      background: #f8fafc;
+      border: 1px solid rgba(15, 23, 42, 0.12);
       border-radius: 12px;
       padding: 12px;
       max-height: 280px;
@@ -460,7 +461,7 @@ export function generateReviewPage(report: StoredReport): string {
       white-space: pre-wrap;
       font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
       font-size: 12px;
-      color: var(--text-primary);
+      color: #0f172a;
     }
 
     .modal-actions {
@@ -468,13 +469,13 @@ export function generateReviewPage(report: StoredReport): string {
       display: flex;
       gap: 12px;
       justify-content: flex-end;
-      border-top: 1px solid var(--border);
+      border-top: 1px solid rgba(15, 23, 42, 0.12);
     }
 
     .btn-secondary {
       background: transparent;
-      color: var(--text-primary);
-      border: 1px solid var(--border-strong);
+      color: #0f172a;
+      border: 1px solid rgba(15, 23, 42, 0.2);
       box-shadow: none;
     }
 
