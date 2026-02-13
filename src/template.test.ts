@@ -146,7 +146,7 @@ describe('template', () => {
     it('should include date and indication of action required', () => {
       const subject = generateInternalNotificationSubject(mockDailyReport);
       
-      expect(subject).toContain('要確認');
+      expect(subject).toContain('ACQ リリース内容報告');
       expect(subject).toContain('2024年01月15日');
     });
   });
@@ -217,7 +217,7 @@ describe('template', () => {
     it('should indicate no tasks completed', () => {
       const subject = generateNoTasksNotificationSubject('2024年1月15日');
       
-      expect(subject).toContain('本日完了なし');
+      expect(subject).toContain('ACQ リリース内容報告');
       expect(subject).toContain('2024年1月15日');
     });
   });

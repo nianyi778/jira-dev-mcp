@@ -241,7 +241,7 @@ export function generateEmailBodyHtml(report: DailyReport): string {
  * Generate internal notification email subject
  */
 export function generateInternalNotificationSubject(report: DailyReport): string {
-  return `【要確認】Jira進捗報告が生成されました - ${report.date}`;
+  return `【${report.date}】ACQ リリース内容報告`;
 }
 
 /**
@@ -333,7 +333,7 @@ export function generateInternalNotificationBodyHtml(
           <tr>
             <td style="padding: 32px 32px 24px 32px; border-bottom: 1px solid #e5e5e5;">
               <div style="font-size: 12px; color: #666; margin-bottom: 4px;">${dailyReport.date}</div>
-              <h1 style="margin: 0; font-size: 18px; font-weight: 600; color: #1a1a1a;">Jira 進捗報告</h1>
+              <h1 style="margin: 0; font-size: 18px; font-weight: 600; color: #1a1a1a;">リリース進捗報告</h1>
             </td>
           </tr>
           
@@ -409,7 +409,7 @@ export function generateInternalNotificationBodyHtml(
  * Generate subject for no-tasks notification
  */
 export function generateNoTasksNotificationSubject(date: string): string {
-  return `【Jira進捗報告】${date} - 本日完了なし`;
+  return `【${date}】ACQ リリース内容報告`;
 }
 
 /**
@@ -463,7 +463,7 @@ export function generateNoTasksNotificationBodyHtml(
           <tr>
             <td style="padding: 32px 32px 24px 32px; border-bottom: 1px solid #e5e5e5;">
               <div style="font-size: 12px; color: #666; margin-bottom: 4px;">${date}</div>
-              <h1 style="margin: 0; font-size: 18px; font-weight: 600; color: #1a1a1a;">Jira 進捗報告</h1>
+              <h1 style="margin: 0; font-size: 18px; font-weight: 600; color: #1a1a1a;">リリース進捗報告</h1>
             </td>
           </tr>
           

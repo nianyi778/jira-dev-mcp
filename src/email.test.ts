@@ -167,7 +167,7 @@ describe('email', () => {
       await sendInternalNotification(mockStoredReport, reviewUrl, env, config);
       
       const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(callBody.subject).toContain('要確認');
+      expect(callBody.subject).toContain('ACQ リリース内容報告');
       expect(callBody.subject).toContain('2024年1月15日');
     });
   });
@@ -206,7 +206,7 @@ describe('email', () => {
       await sendNoTasksNotification('2024年1月15日', ['AT-100'], env, config);
       
       const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(callBody.subject).toContain('本日完了なし');
+      expect(callBody.subject).toContain('ACQ リリース内容報告');
     });
 
     it('should throw if internal email not configured', async () => {
