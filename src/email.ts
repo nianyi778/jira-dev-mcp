@@ -350,7 +350,7 @@ export async function sendClientEmail(
   }
 
   const finalBody = appendSignatureIfMissing(body, senderEmail);
-  const safeBody = escapeHtml(finalBody).replace(/\r?\n/g, '<br />');
+  const safeBody = escapeHtml(body).replace(/\r?\n/g, '<br />');
   const signatureHtml = getExternalSignatureHtml(senderEmail);
   const htmlBody = `<!DOCTYPE html>
 <html>
