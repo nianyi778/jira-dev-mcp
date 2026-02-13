@@ -648,13 +648,8 @@ export function generateReviewPage(report: StoredReport): string {
     (function initTheme() {
       const root = document.documentElement;
       const storageKey = 'theme';
-      const stored = localStorage.getItem(storageKey);
-      if (stored === 'light' || stored === 'dark') {
-        root.setAttribute('data-theme', stored);
-      } else if (window.matchMedia) {
-        const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
-        root.setAttribute('data-theme', prefersLight ? 'light' : 'dark');
-      }
+      root.setAttribute('data-theme', 'light');
+      localStorage.setItem(storageKey, 'light');
 
       const toggle = document.getElementById('themeToggle');
       if (!toggle) return;
@@ -683,7 +678,7 @@ export function generateReviewPage(report: StoredReport): string {
 
     function getExternalSignature() {
       return [
-        '――――――――――――――――',
+        '--------------------',
         'ELESTYLE 株式会社',
         '陳 剣 / CHEN.J / TIN.K',
         'WEB : https://www.elestyle.jp',
@@ -692,7 +687,7 @@ export function generateReviewPage(report: StoredReport): string {
         '〒110-0006',
         '東京都台東区秋葉原1-1',
         '秋葉原ビジネスセンター6階',
-        '――――――――――――――――'
+        '--------------------'
       ].join('\n');
     }
 
