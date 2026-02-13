@@ -876,6 +876,7 @@ function htmlResponse(html: string, status = 200): Response {
  */
 async function generateConfigPageWithKV(env: Env, config: AppConfig, userNote?: string, isSuperAdmin?: boolean): Promise<string> {
   // Create a compatible input object for the page generator
+  const lastConfirmed = await getLastConfirmedSendTime(env);
   const input: ConfigPageInput = {
     JIRA_BASE_URL: env.JIRA_BASE_URL,
     TIMEZONE: env.TIMEZONE,
@@ -890,6 +891,7 @@ async function generateConfigPageWithKV(env: Env, config: AppConfig, userNote?: 
     FEATURE_EMAIL_REPORT: config.featureEmailReport ? 'true' : 'false',
     FEATURE_SLACK_REMINDER: config.featureSlackReminder ? 'true' : 'false',
     SLACK_CHANNEL_NAME: config.slackChannelName,
+    LAST_CONFIRMED_SEND_TIME: lastConfirmed ? lastConfirmed.toISOString() : undefined,
     // Secrets status (just check if defined)
     SLACK_WEBHOOK_URL: env.SLACK_WEBHOOK_URL ? '********' : undefined,
     // User info

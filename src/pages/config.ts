@@ -49,6 +49,7 @@ export interface ConfigPageInput {
   FEATURE_SLACK_REMINDER: string;
   SLACK_CHANNEL_NAME: string;
   SLACK_WEBHOOK_URL?: string;
+  LAST_CONFIRMED_SEND_TIME?: string;
   USER_NOTE?: string;
   IS_SUPER_ADMIN?: boolean;
 }
@@ -81,6 +82,19 @@ export function getCurrentConfig(input: ConfigPageInput): SystemConfig {
  */
 export function generateConfigPage(input: ConfigPageInput, baseUrl: string): string {
   const config = getCurrentConfig(input);
+  const lastConfirmedLabel = (() => {
+    if (!input.LAST_CONFIRMED_SEND_TIME) return '未确认';
+    const date = new Date(input.LAST_CONFIRMED_SEND_TIME);
+    if (Number.isNaN(date.getTime())) return '未确认';
+    return new Intl.DateTimeFormat('zh-CN', {
+      timeZone: config.timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  })();
   
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -1945,6 +1959,12 @@ export function generateConfigPage(input: ConfigPageInput, baseUrl: string): str
           <label class="form-label">默认抄送邮箱</label>
           <input type="text" class="form-input mono" id="ccEmail" value="${config.defaultCcEmail}" placeholder="cc1@example.com, cc2@example.com" />
           <span class="form-hint">多个邮箱用逗号分隔</span>
+        </div>
+        
+        <div class="form-group full-width">
+          <label class="form-label">上次发送确认时间</label>
+          <input type="text" class="form-input mono" id="lastConfirmedSendTime" value="${lastConfirmedLabel}" disabled />
+          <span class="form-hint">用于计算任务采集周期范围</span>
         </div>
       </div>
 
