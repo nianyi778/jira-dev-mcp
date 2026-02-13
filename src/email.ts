@@ -97,15 +97,17 @@ function buildMimeMessage(
 ): string {
   const boundary = `boundary_${crypto.randomUUID()}`;
   const encodedSubject = encodeMimeHeader(subject);
-  const headers = [
-    `From: ${from}`,
-    `To: ${to}`,
-    cc ? `Cc: ${cc}` : '',
+  const headerLines = [`From: ${from}`, `To: ${to}`];
+  if (cc) {
+    headerLines.push(`Cc: ${cc}`);
+  }
+  headerLines.push(
     `Subject: ${encodedSubject}`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
-    '',
-  ].join('\r\n');
+    ''
+  );
+  const headers = `${headerLines.join('\r\n')}\r\n`;
 
   const body = [
     `--${boundary}`,
