@@ -758,11 +758,15 @@ export function generateReviewPage(report: StoredReport): string {
       var input = document.getElementById('authCode');
       var errorDiv = document.getElementById('authError');
       var verifyBtn = document.getElementById('verifyAuthBtn');
-      var code = input ? input.value.trim() : '';
+      var rawValue = input ? input.value : '';
+      // 移除所有非数字字符
+      var code = rawValue.replace(/\D/g, '');
+      
+      console.log('[Auth] Raw input:', rawValue, 'Cleaned code:', code, 'Length:', code.length);
 
-      if (!/^\d{6}$/.test(code)) {
+      if (code.length !== 6) {
         if (errorDiv) {
-          errorDiv.textContent = '请输入6位数字授权码';
+          errorDiv.textContent = '请输入6位数字授权码（当前' + code.length + '位）';
           errorDiv.style.display = 'block';
         }
         return;
