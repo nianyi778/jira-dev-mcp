@@ -275,6 +275,7 @@ export default {
     const verifyMatch = pathname.match(/^\/review\/([a-zA-Z0-9-]+)\/verify$/);
     if (verifyMatch && request.method === 'POST') {
       const token = verifyMatch[1];
+      console.log('[Auth] Verifying auth code for review token:', token);
       try {
         const report = await getReport(token, env);
         if (!report) {
