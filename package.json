@@ -27,7 +27,7 @@
     "@vitest/coverage-v8": "^4.0.18",
     "husky": "^9.1.7",
     "miniflare": "^3.20250718.3",
-    "typescript": "^5.3.3",
+    "typescript": "^5.9.3",
     "vitest": "^4.0.18",
     "wrangler": "^3.24.0"
   }

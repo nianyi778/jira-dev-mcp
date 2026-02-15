@@ -596,6 +596,28 @@ export function generateReviewPage(report: StoredReport): string {
         <div id="confirmNotification"></div>
       </div>
 
+      <!-- 授权码验证模态框 -->
+      <div class="modal-overlay" id="authModal" aria-hidden="true">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+          <div class="modal-header" id="authTitle">授权验证</div>
+          <div class="modal-body">
+            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+              请输入6位数字授权码以继续预览和发送邮件
+            </p>
+            <div class="form-group" style="margin-bottom: 16px;">
+              <label for="authCode">授权码</label>
+              <input type="text" id="authCode" placeholder="请输入6位数字" maxlength="6" inputmode="numeric" pattern="[0-9]*" style="text-align: center; font-size: 18px; letter-spacing: 8px; font-family: monospace;" />
+              <div class="hint" id="authHint">授权码验证通过后将在当前会话中保持有效</div>
+            </div>
+            <div id="authError" style="color: var(--error-text); font-size: 12px; margin-top: 8px; display: none;"></div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeAuthModal()">取消</button>
+            <button type="button" class="btn btn-primary" id="verifyAuthBtn" onclick="verifyAuth()">验证</button>
+          </div>
+        </div>
+      </div>
+
       <div class="modal-overlay" id="previewModal" aria-hidden="true">
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
           <div class="modal-header" id="previewTitle">送信前プレビュー</div>
@@ -694,6 +716,93 @@ export function generateReviewPage(report: StoredReport): string {
         return;
       }
 
+      // 检查是否已经授权
+      var authCode = sessionStorage.getItem('reviewAuthCode');
+      if (!authCode) {
+        // 未授权，显示授权模态框
+        openAuthModal();
+        return;
+      }
+
+      // 已授权，直接显示预览
+      showPreviewModal();
+    }
+
+    function openAuthModal() {
+      var modal = document.getElementById('authModal');
+      var errorDiv = document.getElementById('authError');
+      var input = document.getElementById('authCode');
+      if (modal) {
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
+      }
+      if (errorDiv) {
+        errorDiv.style.display = 'none';
+        errorDiv.textContent = '';
+      }
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+    }
+
+    function closeAuthModal() {
+      var modal = document.getElementById('authModal');
+      if (modal) {
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+      }
+    }
+
+    function verifyAuth() {
+      var input = document.getElementById('authCode');
+      var errorDiv = document.getElementById('authError');
+      var verifyBtn = document.getElementById('verifyAuthBtn');
+      var code = input ? input.value.trim() : '';
+
+      if (!/^\d{6}$/.test(code)) {
+        if (errorDiv) {
+          errorDiv.textContent = '请输入6位数字授权码';
+          errorDiv.style.display = 'block';
+        }
+        return;
+      }
+
+      if (verifyBtn) verifyBtn.disabled = true;
+
+      var token = window.location.pathname.split('/')[2];
+      fetch('/review/' + token + '/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code })
+      })
+        .then(function(res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        })
+        .then(function(data) {
+          // 验证成功，保存授权码到 sessionStorage
+          sessionStorage.setItem('reviewAuthCode', code);
+          sessionStorage.setItem('reviewAuthUser', data.user || 'Unknown');
+          closeAuthModal();
+          // 自动显示预览
+          showPreviewModal();
+        })
+        .catch(function(err) {
+          if (errorDiv) {
+            errorDiv.textContent = '授权码无效，请重试';
+            errorDiv.style.display = 'block';
+          }
+          if (verifyBtn) verifyBtn.disabled = false;
+        });
+    }
+
+    function showPreviewModal() {
+      var to = document.getElementById('to').value.trim();
+      var cc = document.getElementById('cc').value.trim();
+      var subject = document.getElementById('subject').value.trim();
+      var body = document.getElementById('body').value;
+
       var modal = document.getElementById('previewModal');
       var previewTo = document.getElementById('previewTo');
       var previewCc = document.getElementById('previewCc');
@@ -743,12 +852,21 @@ export function generateReviewPage(report: StoredReport): string {
         if (sendBtn) sendBtn.disabled = false;
         return;
       }
+
+      // 获取授权码
+      var authCode = sessionStorage.getItem('reviewAuthCode');
+      if (!authCode) {
+        alert('授权已过期，请重新验证');
+        if (sendBtn) sendBtn.disabled = false;
+        if (confirmBtn) confirmBtn.disabled = false;
+        return;
+      }
       
       var token = window.location.pathname.split('/')[2];
       fetch('/review/' + token + '/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: to, cc: cc, subject: subject, body: body })
+        body: JSON.stringify({ to: to, cc: cc, subject: subject, body: body, authCode: authCode })
       })
         .then(function(res) {
           if (!res.ok) throw new Error('HTTP ' + res.status);

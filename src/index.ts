@@ -271,6 +271,50 @@ export default {
       }
     }
 
+    // 授权码验证端点
+    const verifyMatch = pathname.match(/^\/review\/([a-zA-Z0-9-]+)\/verify$/);
+    if (verifyMatch && request.method === 'POST') {
+      const token = verifyMatch[1];
+      try {
+        const report = await getReport(token, env);
+        if (!report) {
+          return jsonResponse({ error: 'Report not found or expired' }, 404);
+        }
+
+        let payload: { code?: string } = {};
+        try {
+          payload = (await request.json()) as { code?: string };
+        } catch {
+          payload = {};
+        }
+
+        const code = payload.code || '';
+
+        if (!/^\d{6}$/.test(code)) {
+          return jsonResponse({ error: 'Invalid auth code format' }, 400);
+        }
+
+        // 验证授权码
+        // 创建一个模拟请求来复用 authenticate 逻辑
+        const mockRequest = new Request(request.url, {
+          headers: { 'Authorization': `Bearer ${code}` },
+        });
+        const auth = await authenticate(mockRequest, env);
+
+        if (!auth.valid) {
+          return jsonResponse({ error: 'Invalid auth code' }, 401);
+        }
+
+        return jsonResponse({ 
+          success: true, 
+          user: auth.note || 'Unknown'
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return jsonResponse({ error: errorMessage }, 500);
+      }
+    }
+
     const sendMatch = pathname.match(/^\/review\/([a-zA-Z0-9-]+)\/send$/);
     if (sendMatch && request.method === 'POST') {
       const token = sendMatch[1];
@@ -280,9 +324,9 @@ export default {
           return jsonResponse({ error: 'Report not found or expired' }, 404);
         }
 
-        let payload: { to?: string; cc?: string; subject?: string; body?: string } = {};
+        let payload: { to?: string; cc?: string; subject?: string; body?: string; authCode?: string } = {};
         try {
-          payload = (await request.json()) as { to?: string; cc?: string; subject?: string; body?: string };
+          payload = (await request.json()) as { to?: string; cc?: string; subject?: string; body?: string; authCode?: string };
         } catch {
           payload = {};
         }
@@ -291,6 +335,22 @@ export default {
         const cc = (payload.cc || report.defaultCc || '').trim();
         const subject = (payload.subject || report.defaultSubject || '').trim();
         const body = payload.body || report.defaultBody || '';
+        const authCode = payload.authCode || '';
+
+        // 验证授权码
+        if (!/^\d{6}$/.test(authCode)) {
+          return jsonResponse({ error: 'Auth code is required' }, 401);
+        }
+
+        // 验证授权码有效性
+        const mockRequest = new Request(request.url, {
+          headers: { 'Authorization': `Bearer ${authCode}` },
+        });
+        const auth = await authenticate(mockRequest, env);
+
+        if (!auth.valid) {
+          return jsonResponse({ error: 'Invalid auth code' }, 401);
+        }
 
         if (!to) {
           return jsonResponse({ error: 'Recipient is required' }, 400);
@@ -303,13 +363,14 @@ export default {
 
         const todayKey = getTodayDateKey(env.TIMEZONE);
         const reviewUrl = `${env.WORKER_BASE_URL}/review/${report.id}`;
-        const operator = env.GMAIL_SENDER_NAME || env.GMAIL_SENDER_EMAIL || 'Review Page';
+        // 使用授权码对应的用户信息记录发送人
+        const operator = auth.note || 'Unknown';
         await logEmailSend(env, todayKey, 'manual', operator, true, 'Client email sent via Gmail', reviewUrl);
         return jsonResponse({ success: true });
       } catch (error) {
         const todayKey = getTodayDateKey(env.TIMEZONE);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        const operator = env.GMAIL_SENDER_NAME || env.GMAIL_SENDER_EMAIL || 'Review Page';
+        const operator = 'Unknown';
         await logEmailSend(env, todayKey, 'manual', operator, false, `Client email failed: ${errorMessage}`);
         return jsonResponse({ success: false, error: errorMessage }, 500);
       }
