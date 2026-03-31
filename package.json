@@ -8,6 +8,12 @@
     "jira-mcp-server": "dist/index.js",
     "jira-mcp-login": "dist/login.js"
   },
+  "files": [
+    "dist",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
@@ -15,7 +21,8 @@
     "login": "node dist/login.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm test && npm run build"
   },
   "keywords": [
     "jira",
