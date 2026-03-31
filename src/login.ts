@@ -6,7 +6,7 @@ import { randomBytes } from 'node:crypto';
 import { CONFIG_PATH, loadUserConfig, saveUserConfig } from './config.js';
 import type { OAuthTokens } from './types.js';
 
-const SCOPES = ['read:jira-work', 'read:jira-user', 'offline_access'];
+const SCOPES = ['read:jira-work', 'write:jira-work', 'read:jira-user', 'offline_access'];
 const CALLBACK_PORT = 3737;
 const REDIRECT_URI = `http://localhost:${CALLBACK_PORT}/callback`;
 

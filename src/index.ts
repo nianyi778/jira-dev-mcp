@@ -129,11 +129,7 @@ server.registerTool(
     return {
       content: [{
         type: 'text',
-        text: JSON.stringify({
-          commentId: result.commentId,
-          url: result.url,
-          message: `Comment posted. View at: ${result.url}`,
-        }, null, 2),
+        text: `Comment posted successfully.\n\nView comment: ${result.url}`,
       }],
     };
   }
