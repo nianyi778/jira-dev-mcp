@@ -1,34 +1,38 @@
 {
-  "name": "jira-subtask-monitor",
+  "name": "jira-dev-mcp",
   "version": "1.0.0",
-  "description": "Cloudflare Worker to monitor Jira subtask completion and send daily email reports",
-  "main": "src/index.ts",
+  "description": "Local MCP server for Jira Cloud-driven development workflows",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "jira-mcp-server": "dist/index.js",
+    "jira-mcp-login": "dist/login.js"
+  },
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "test:scheduled": "wrangler dev --test-scheduled",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "start": "node dist/index.js",
+    "login": "node dist/login.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:unit": "vitest run --dir src",
-    "test:integration": "vitest run --dir test/integration",
-    "test:coverage": "vitest run --coverage",
-    "prepare": "husky install"
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "jira",
-    "cloudflare-workers",
-    "email",
-    "monitoring"
+    "mcp",
+    "model-context-protocol",
+    "developer-tools"
   ],
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.25.76"
+  },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240117.0",
+    "@types/node": "^20.0.0",
     "@vitest/coverage-v8": "^4.0.18",
-    "husky": "^9.1.7",
-    "miniflare": "^3.20250718.3",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18",
-    "wrangler": "^3.24.0"
+    "vitest": "^4.0.18"
   }
 }
