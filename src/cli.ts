@@ -29,6 +29,7 @@ Commands:
   status              Show current authentication and config status
   doctor              Run health checks (Node version, Python, config)
   upgrade             Upgrade jira-dev-mcp to the latest version
+  setup               Register this MCP server with Claude Code / OpenCode
   config set-path     Map a Jira project key to a local repo path
 
 Options:
@@ -41,6 +42,7 @@ Examples:
   jira-dev status
   jira-dev doctor
   jira-dev upgrade
+  jira-dev setup
   jira-dev config set-path AT /path/to/your/repo
 `;
 
@@ -73,6 +75,65 @@ Subcommands:
   set-path <PROJECT_KEY> <LOCAL_PATH>   Map a Jira project to a local directory
 `,
 };
+
+async function cmdSetup(): Promise<void> {
+  const { readFile, writeFile } = await import('node:fs/promises');
+  const { homedir } = await import('node:os');
+  const { resolve } = await import('node:path');
+
+  const entry = { command: 'jira-dev', args: ['server'] };
+  let registered = 0;
+
+  // Claude Code — ~/.claude.json
+  const claudeJsonPath = resolve(homedir(), '.claude.json');
+  try {
+    const raw = await readFile(claudeJsonPath, 'utf8');
+    const data = JSON.parse(raw) as Record<string, unknown>;
+    if (typeof data.mcpServers === 'object' && data.mcpServers !== null) {
+      const servers = data.mcpServers as Record<string, unknown>;
+      if (!servers['jira']) {
+        servers['jira'] = entry;
+        await writeFile(claudeJsonPath, JSON.stringify(data, null, 2));
+        console.log(`✓ Registered in Claude Code  (${claudeJsonPath})`);
+        registered++;
+      } else {
+        console.log(`✓ Already registered in Claude Code`);
+        registered++;
+      }
+    }
+  } catch {
+    // .claude.json not found or not parseable — skip silently
+  }
+
+  // OpenCode — ~/.opencode/config.json
+  const opencodeJsonPath = resolve(homedir(), '.opencode', 'config.json');
+  try {
+    const raw = await readFile(opencodeJsonPath, 'utf8');
+    const data = JSON.parse(raw) as Record<string, unknown>;
+    if (typeof data.mcpServers === 'object' && data.mcpServers !== null) {
+      const servers = data.mcpServers as Record<string, unknown>;
+      if (!servers['jira']) {
+        servers['jira'] = entry;
+        await writeFile(opencodeJsonPath, JSON.stringify(data, null, 2));
+        console.log(`✓ Registered in OpenCode  (${opencodeJsonPath})`);
+        registered++;
+      } else {
+        console.log(`✓ Already registered in OpenCode`);
+        registered++;
+      }
+    }
+  } catch {
+    // not installed — skip
+  }
+
+  if (registered === 0) {
+    console.log('No supported MCP clients found (Claude Code, OpenCode).');
+    console.log('\nAdd manually to your MCP client config:');
+    console.log(JSON.stringify({ mcpServers: { jira: entry } }, null, 2));
+  } else {
+    console.log('\nRestart your MCP client to load the server.');
+  }
+}
 
 async function cmdUpgrade(): Promise<void> {
   const { execFile } = await import('node:child_process');
@@ -287,6 +348,10 @@ async function main(): Promise<void> {
     }
     case 'upgrade': {
       await cmdUpgrade();
+      break;
+    }
+    case 'setup': {
+      await cmdSetup();
       break;
     }
     case 'config': {
