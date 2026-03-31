@@ -4,7 +4,11 @@
   "description": "Local MCP server for Jira Cloud-driven development workflows",
   "type": "module",
   "main": "dist/index.js",
+  "engines": {
+    "node": ">=18.3.0"
+  },
   "bin": {
+    "jira-dev": "dist/cli.js",
     "jira-mcp-server": "dist/index.js",
     "jira-mcp-login": "dist/login.js"
   },

@@ -1,0 +1,262 @@
+#!/usr/bin/env node
+
+import { parseArgs } from 'node:util';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { resolve, dirname } from 'node:path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+async function getVersion(): Promise<string> {
+  const pkgPath = resolve(__dirname, '../package.json');
+  const pkg = JSON.parse(await readFile(pkgPath, 'utf8')) as { version: string };
+  return pkg.version;
+}
+
+// Node version check — parseArgs requires >= 18.3
+const [nodeMajor, nodeMinor] = process.versions.node.split('.').map(Number);
+if (nodeMajor < 18 || (nodeMajor === 18 && (nodeMinor ?? 0) < 3)) {
+  process.stderr.write(`jira-dev requires Node.js >= 18.3.0 (current: ${process.versions.node})\n`);
+  process.exit(1);
+}
+
+const HELP = `
+Usage: jira-dev <command> [options]
+
+Commands:
+  server              Start the MCP server (stdio transport)
+  login               Authenticate via OAuth 2.0 browser flow
+  status              Show current authentication and config status
+  doctor              Run health checks (Node version, Python, config)
+  config set-path     Map a Jira project key to a local repo path
+
+Options:
+  -v, --version       Show version number
+  -h, --help          Show this help message
+
+Examples:
+  jira-dev server
+  jira-dev login
+  jira-dev status
+  jira-dev doctor
+  jira-dev config set-path AT /path/to/your/repo
+`;
+
+const COMMAND_HELP: Record<string, string> = {
+  server: `
+Usage: jira-dev server
+
+Start the MCP server using stdio transport.
+Add to your MCP client config:
+
+  { "mcpServers": { "jira": { "command": "jira-dev", "args": ["server"] } } }
+`,
+  login: `
+Usage: jira-dev login
+
+Open a browser for Jira OAuth 2.0 authorization.
+Requires:
+  JIRA_CLIENT_ID=<id>
+  JIRA_CLIENT_SECRET=<secret>
+`,
+  status: `
+Usage: jira-dev status
+
+Show current authentication mode, config file location, and mapped projects.
+`,
+  config: `
+Usage: jira-dev config <subcommand>
+
+Subcommands:
+  set-path <PROJECT_KEY> <LOCAL_PATH>   Map a Jira project to a local directory
+`,
+};
+
+async function cmdDoctor(): Promise<void> {
+  let allOk = true;
+  const ok = (msg: string) => console.log(`  ✓ ${msg}`);
+  const fail = (msg: string) => { console.log(`  ✗ ${msg}`); allOk = false; };
+  const warn = (msg: string) => console.log(`  ! ${msg}`);
+
+  // Node version
+  console.log('\nNode.js');
+  const [major, minor] = process.versions.node.split('.').map(Number);
+  if (major > 18 || (major === 18 && (minor ?? 0) >= 3)) {
+    ok(`v${process.versions.node} (>= 18.3.0 required)`);
+  } else {
+    fail(`v${process.versions.node} — upgrade to >= 18.3.0`);
+  }
+
+  // Python
+  console.log('\nPython (for attachment parsing)');
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const exec = promisify(execFile);
+  try {
+    const { stdout } = await exec('python3', ['--version']);
+    ok(stdout.trim());
+  } catch {
+    fail('python3 not found — CSV/XLSX/PDF parsing will not work');
+  }
+
+  // Config file
+  console.log('\nConfig');
+  const { loadUserConfig, CONFIG_PATH, configFileExists } = await import('./config.js');
+  const exists = await configFileExists();
+  if (!exists) {
+    warn(`${CONFIG_PATH} does not exist — run: jira-dev login`);
+  } else {
+    ok(`${CONFIG_PATH} exists`);
+    const config = await loadUserConfig();
+
+    if (config.jira?.authMode === 'oauth' && config.jira.oauth) {
+      const { oauth } = config.jira;
+      const expiresIn = Math.round((oauth.expiresAt - Date.now()) / 1000 / 60);
+      if (expiresIn > 5) {
+        ok(`OAuth token valid (expires in ${expiresIn} minutes)`);
+      } else if (expiresIn > 0) {
+        warn(`OAuth token expires in ${expiresIn} minutes — will auto-refresh`);
+      } else {
+        fail(`OAuth token expired ${Math.abs(expiresIn)} minutes ago — run: jira-dev login`);
+      }
+      ok(`Jira site: ${oauth.cloudUrl}`);
+    } else if (config.jira?.baseUrl) {
+      ok(`baseUrl: ${config.jira.baseUrl}`);
+      if (!config.jira.email) warn('email not set (required for basic auth)');
+      else ok(`email: ${config.jira.email}`);
+    } else {
+      fail('Jira credentials not configured — run: jira-dev login');
+    }
+
+    const projectCount = Object.keys(config.projects ?? {}).length;
+    if (projectCount === 0) {
+      warn('No project paths mapped — run: jira-dev config set-path <KEY> <PATH>');
+    } else {
+      ok(`${projectCount} project path(s) mapped`);
+    }
+  }
+
+  console.log('');
+  if (allOk) {
+    console.log('All checks passed.');
+  } else {
+    console.log('Some checks failed. See above for details.');
+    process.exit(1);
+  }
+}
+
+async function cmdStatus(): Promise<void> {
+  const { loadUserConfig, CONFIG_PATH } = await import('./config.js');
+  const config = await loadUserConfig();
+
+  console.log(`Config: ${CONFIG_PATH}`);
+  console.log('');
+
+  if (config.jira?.authMode === 'oauth' && config.jira.oauth) {
+    const { oauth } = config.jira;
+    const expiresIn = Math.round((oauth.expiresAt - Date.now()) / 1000 / 60);
+    console.log(`Auth:   OAuth 2.0`);
+    console.log(`Site:   ${oauth.cloudUrl}`);
+    console.log(`Token:  ${expiresIn > 0 ? `expires in ${expiresIn} minutes` : 'EXPIRED — run: jira-dev login'}`);
+  } else if (config.jira?.baseUrl) {
+    console.log(`Auth:   ${config.jira.authMode ?? 'basic'}`);
+    console.log(`URL:    ${config.jira.baseUrl}`);
+    console.log(`Email:  ${config.jira.email ?? '(not set)'}`);
+    console.log(`Token:  ${config.jira.token || config.jira.apiToken ? 'set' : '(not set)'}`);
+  } else {
+    console.log('Auth:   not configured');
+    console.log('Run: jira-dev login  (OAuth)');
+    console.log(' or: set JIRA_BASE_URL, JIRA_EMAIL, JIRA_TOKEN  (Basic)');
+  }
+
+  const projects = config.projects ?? {};
+  const projectKeys = Object.keys(projects);
+  console.log('');
+  if (projectKeys.length === 0) {
+    console.log('Projects: none mapped');
+    console.log('Run: jira-dev config set-path <PROJECT_KEY> <LOCAL_PATH>');
+  } else {
+    console.log('Projects:');
+    for (const [key, path] of Object.entries(projects)) {
+      console.log(`  ${key} → ${path}`);
+    }
+  }
+}
+
+async function cmdConfigSetPath(args: string[]): Promise<void> {
+  const [projectKey, localPath] = args;
+  if (!projectKey || !localPath) {
+    console.error('Usage: jira-dev config set-path <PROJECT_KEY> <LOCAL_PATH>');
+    process.exit(1);
+  }
+  const { setProjectPath, CONFIG_PATH } = await import('./config.js');
+  const result = await setProjectPath(projectKey, resolve(localPath));
+  console.log(`Mapped ${result.projectKey} → ${result.localPath}`);
+  console.log(`Saved to ${CONFIG_PATH}`);
+}
+
+async function main(): Promise<void> {
+  const { values, positionals } = parseArgs({
+    args: process.argv.slice(2),
+    options: {
+      version: { type: 'boolean', short: 'v' },
+      help: { type: 'boolean', short: 'h' },
+    },
+    allowPositionals: true,
+    strict: false,
+  });
+
+  if (values.version) {
+    console.log(`jira-dev v${await getVersion()}`);
+    return;
+  }
+
+  const [command, ...rest] = positionals;
+
+  if (values.help || !command) {
+    if (command && COMMAND_HELP[command]) {
+      console.log(COMMAND_HELP[command]);
+    } else {
+      console.log(HELP);
+    }
+    return;
+  }
+
+  switch (command) {
+    case 'server': {
+      await import('./index.js');
+      break;
+    }
+    case 'login': {
+      await import('./login.js');
+      break;
+    }
+    case 'status': {
+      await cmdStatus();
+      break;
+    }
+    case 'doctor': {
+      await cmdDoctor();
+      break;
+    }
+    case 'config': {
+      const [sub, ...subArgs] = rest;
+      if (sub === 'set-path') {
+        await cmdConfigSetPath(subArgs);
+      } else {
+        console.log(COMMAND_HELP['config']);
+      }
+      break;
+    }
+    default: {
+      console.error(`Unknown command: ${command}`);
+      console.error('Run: jira-dev --help');
+      process.exit(1);
+    }
+  }
+}
+
+main().catch((err: unknown) => {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
+});
