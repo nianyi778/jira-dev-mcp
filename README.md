@@ -110,11 +110,51 @@ security add-generic-password -a "$USER" -s "jira-dev-mcp:JIRA_TOKEN" -w "your-t
 
 ## Development Workflow
 
-1. `jira_my_tasks` — find what to work on
-2. `jira_read_task` — read task details and attachment list
-3. `jira_download_attachment` — parse specs, CSV data, or PDFs
-4. AI reads local code via `project.localPath` from step 2
-5. Implement, test, done
+### Standard usage with Claude Code
+
+**Step 1 — One-time setup: map your project**
+
+```
+jira_set_project_path(jiraProject: "AT", localPath: "/path/to/your/repo")
+```
+
+**Step 2 — Find your task**
+
+```
+jira_my_tasks(status: "In Progress")
+```
+
+or search by keyword / JQL:
+
+```
+jira_search_issues(query: "login timeout bug")
+jira_search_issues(query: "project = AT AND sprint in openSprints()")
+```
+
+**Step 3 — Read the task**
+
+```
+jira_read_task(key: "AT-123", includeComments: true)
+```
+
+Returns: description, subtasks, changelog, comments, attachment list, and the local repo path.
+
+**Step 4 — Download attachments if needed**
+
+```
+jira_download_attachment(key: "AT-123", filename: "spec.xlsx")
+```
+
+CSV / XLSX / XLS / PDF are parsed and returned as structured text. Images are returned as base64 for the AI client to interpret.
+
+**Step 5 — AI implements the fix**
+
+With the task details and local repo path in context, ask Claude Code to:
+
+- Explain the root cause
+- Propose a plan with impact scope
+- Implement the fix
+- Write test cases
 
 ## Project Path Mapping
 
