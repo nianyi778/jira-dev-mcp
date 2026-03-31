@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
+import { realpathSync } from 'node:fs';
 import { z } from 'zod';
 import { handleJiraSearch } from './tools/search.js';
 import { handleReadTask } from './tools/read-task.js';
@@ -114,7 +115,7 @@ const TOOL_DEFINITIONS = [
 export function createServer(): McpServer {
   const server = new McpServer({
     name: 'jira-dev-mcp',
-    version: '1.1.5',
+    version: '1.1.6',
   });
 
   for (const tool of TOOL_DEFINITIONS) {
@@ -133,7 +134,7 @@ export async function main() {
   await server.connect(transport);
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(resolve(process.argv[1])) === fileURLToPath(import.meta.url)) {
   main().catch((err: unknown) => {
     process.stderr.write(`MCP server error: ${err instanceof Error ? err.message : String(err)}\n`);
     process.exit(1);

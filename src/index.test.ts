@@ -45,7 +45,7 @@ describe('createServer', () => {
     const { createServer } = await import('./index.js');
     createServer();
 
-    expect(mockServerCtor).toHaveBeenCalledWith({ name: 'jira-dev-mcp', version: '1.1.5' });
+    expect(mockServerCtor).toHaveBeenCalledWith({ name: 'jira-dev-mcp', version: '1.1.6' });
     expect(mockRegisterTool).toHaveBeenCalledTimes(7);
     expect(mockRegisterTool.mock.calls.map((call) => call[0])).toEqual([
       'jira_search_issues',
