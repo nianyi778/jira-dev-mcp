@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { CONFIG_PATH, loadUserConfig, saveUserConfig } from './config.js';
+import { BUILTIN_CLIENT_ID, BUILTIN_CLIENT_SECRET } from './defaults.js';
 import type { OAuthTokens } from './types.js';
 
 const SCOPES = ['read:jira-work', 'write:jira-work', 'read:jira-user', 'offline_access'];
@@ -152,19 +153,21 @@ async function pickSite(resources: Array<{ id: string; name: string; url: string
 }
 
 async function main() {
-  const clientId = process.env.JIRA_CLIENT_ID;
-  const clientSecret = process.env.JIRA_CLIENT_SECRET;
+  // User-supplied env vars take priority; fall back to the built-in app credentials
+  const clientId = process.env.JIRA_CLIENT_ID || BUILTIN_CLIENT_ID;
+  const clientSecret = process.env.JIRA_CLIENT_SECRET || BUILTIN_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    console.error('Error: JIRA_CLIENT_ID and JIRA_CLIENT_SECRET are required.\n');
-    console.error('Steps to create an OAuth 2.0 app:');
+    console.error('Error: OAuth credentials not configured.\n');
+    console.error('Option 1 (use your own OAuth app):');
     console.error('  1. Go to https://developer.atlassian.com/console/myapps/');
     console.error('  2. Create → OAuth 2.0 integration');
     console.error(`  3. Add callback URL: ${REDIRECT_URI}`);
     console.error(`  4. Add scopes: ${SCOPES.join('  ')}`);
-    console.error('  5. Copy the Client ID and Secret, then set:');
+    console.error('  5. Set env vars:');
     console.error('       export JIRA_CLIENT_ID=<id>');
     console.error('       export JIRA_CLIENT_SECRET=<secret>');
+    console.error('\nOption 2: contact the package maintainer to report this issue.');
     process.exit(1);
   }
 
