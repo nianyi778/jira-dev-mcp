@@ -5,6 +5,8 @@ A local MCP server for Jira Cloud-driven development. Connects Claude Code, Open
 [![npm version](https://img.shields.io/npm/v/jira-dev-mcp.svg)](https://www.npmjs.com/package/jira-dev-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+**Other languages:** [中文](README.zh.md) · [日本語](README.ja.md)
+
 ## Features
 
 - Search Jira issues with natural language or raw JQL
