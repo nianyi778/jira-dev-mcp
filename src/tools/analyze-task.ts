@@ -38,7 +38,8 @@ export async function handleAnalyzeTask(args: unknown) {
     throw new Error('jira_analyze_task requires input (issue key or URL)');
   }
 
-  const autoComment = (args as Record<string, unknown>).auto_comment !== false;
+  const autoCommentRaw = (args as Record<string, unknown>).auto_comment;
+  const autoComment = autoCommentRaw !== false && autoCommentRaw !== null;
   const responseFormat = ((args as Record<string, unknown>).response_format || 'markdown') as ResponseFormat;
 
   const key = parseIssueKey(rawInput);
@@ -50,15 +51,21 @@ export async function handleAnalyzeTask(args: unknown) {
   const issue = await readIssue(config, {
     key,
     includeComments: true,
-    commentMaxResults: 10,
+    commentMaxResults: 50,
     changelogMaxResults: 5,
   });
 
   const localPath = await getProjectPath(projectKey);
 
-  const analysisMarker = `【${key}】`;
+  // Match all three type-specific template headers to avoid false positives
+  // from normal comments that happen to reference the issue key like 【AT-123】
+  const analysisMarkers = [
+    `【${key}】バグ修正分析`,
+    `【${key}】機能実装分析`,
+    `【${key}】タスク実装分析`,
+  ];
   const existingComment = issue.comments.items.find(
-    (c) => c.bodyPlainText.includes(analysisMarker)
+    (c) => analysisMarkers.some((m) => c.bodyPlainText.includes(m))
   ) || null;
 
   const payload = {

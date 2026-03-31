@@ -340,7 +340,7 @@ describe('tool handlers', () => {
         startAt: 0,
         maxResults: 10,
         total: 1,
-        items: [{ id: 'c-999', author: 'bot', created: '2024-01-01', updated: null, bodyPlainText: '【AT-303】バグ修正分析\n...' }],
+        items: [{ id: 'c-999', author: 'bot', created: '2024-01-01', updated: null, bodyPlainText: '【AT-303】バグ修正分析\n■ 根本原因...' }],
       },
       changelog: { startAt: 0, maxResults: 5, total: 0, items: [] },
     });
@@ -352,6 +352,38 @@ describe('tool handlers', () => {
     expect(result.text).toContain('Analysis already posted');
     expect(result.text).toContain('jira_edit_comment');
     expect(result.text).toContain('c-999');
+  });
+
+  it('handleAnalyzeTask does NOT false-positive on normal comments referencing the key', async () => {
+    mockReadIssue.mockResolvedValue({
+      key: 'AT-303',
+      summary: 'Fix null pointer',
+      descriptionPlainText: 'NPE in checkout',
+      status: 'Open',
+      assignee: null,
+      issueType: 'Bug',
+      priority: 'High',
+      labels: [],
+      parent: null,
+      subtasks: [],
+      linkedIssues: [],
+      attachments: [],
+      comments: {
+        enabled: true,
+        startAt: 0,
+        maxResults: 50,
+        total: 1,
+        // Normal comment that references the key but is NOT an analysis comment
+        items: [{ id: 'c-001', author: 'dev', created: '2024-01-01', updated: null, bodyPlainText: '参考【AT-303】の実装方針で進めます' }],
+      },
+      changelog: { startAt: 0, maxResults: 5, total: 0, items: [] },
+    });
+
+    const { handleAnalyzeTask } = await import('./analyze-task.js');
+    const result = await handleAnalyzeTask({ input: 'AT-303', response_format: 'markdown' });
+
+    expect(result.data.existingAnalysisCommentId).toBeNull();
+    expect(result.text).not.toContain('Analysis already posted');
   });
 
   it('handleAnalyzeTask throws on invalid input', async () => {
