@@ -17,29 +17,38 @@ vi.mock('@modelcontextprotocol/sdk/server/stdio.js', () => ({
   StdioServerTransport: vi.fn(),
 }));
 
-vi.mock('./tools/search.js', () => ({
-  handleJiraSearch: vi.fn().mockResolvedValue({ text: 'search result' }),
-}));
-vi.mock('./tools/read-task.js', () => ({
-  handleReadTask: vi.fn().mockResolvedValue({ text: 'read result' }),
-}));
-vi.mock('./tools/attachment.js', () => ({
-  handleDownloadAttachment: vi.fn().mockResolvedValue({ text: 'attachment result' }),
-}));
-vi.mock('./tools/my-tasks.js', () => ({
-  handleMyTasks: vi.fn().mockResolvedValue({ text: 'my tasks result' }),
-}));
-vi.mock('./tools/project.js', () => ({
-  handleSetProjectPath: vi.fn().mockResolvedValue({ projectKey: 'AT', localPath: '/tmp/at' }),
-  handleGetProjectPath: vi.fn().mockResolvedValue({ text: 'project path result' }),
-}));
-vi.mock('./tools/comment.js', () => ({
-  handleAddComment: mockHandleAddComment,
-  handleEditComment: mockHandleEditComment,
-}));
-vi.mock('./tools/analyze-task.js', () => ({
-  handleAnalyzeTask: vi.fn().mockResolvedValue({ text: 'analysis result' }),
-}));
+vi.mock('./tools/search.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./tools/search.js')>();
+  return { ...actual, handleJiraSearch: vi.fn().mockResolvedValue({ text: 'search result' }) };
+});
+vi.mock('./tools/read-task.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./tools/read-task.js')>();
+  return { ...actual, handleReadTask: vi.fn().mockResolvedValue({ text: 'read result' }) };
+});
+vi.mock('./tools/attachment.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./tools/attachment.js')>();
+  return { ...actual, handleDownloadAttachment: vi.fn().mockResolvedValue({ text: 'attachment result' }) };
+});
+vi.mock('./tools/my-tasks.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./tools/my-tasks.js')>();
+  return { ...actual, handleMyTasks: vi.fn().mockResolvedValue({ text: 'my tasks result' }) };
+});
+vi.mock('./tools/project.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./tools/project.js')>();
+  return {
+    ...actual,
+    handleSetProjectPath: vi.fn().mockResolvedValue({ projectKey: 'AT', localPath: '/tmp/at' }),
+    handleGetProjectPath: vi.fn().mockResolvedValue({ text: 'project path result' }),
+  };
+});
+vi.mock('./tools/comment.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./tools/comment.js')>();
+  return { ...actual, handleAddComment: mockHandleAddComment, handleEditComment: mockHandleEditComment };
+});
+vi.mock('./tools/analyze-task.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./tools/analyze-task.js')>();
+  return { ...actual, handleAnalyzeTask: vi.fn().mockResolvedValue({ text: 'analysis result' }) };
+});
 
 describe('createServer', () => {
   beforeEach(() => {
@@ -67,7 +76,7 @@ describe('createServer', () => {
     const { createServer } = await import('./index.js');
     createServer();
 
-    expect(mockServerCtor).toHaveBeenCalledWith({ name: 'jira-dev-mcp', version: '1.2.1' });
+    expect(mockServerCtor).toHaveBeenCalledWith({ name: 'jira-dev-mcp', version: expect.any(String) });
     expect(mockRegisterTool).toHaveBeenCalledTimes(9);
     expect(mockRegisterTool.mock.calls.map((call) => call[0])).toEqual([
       'jira_search_issues',

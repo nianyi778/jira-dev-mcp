@@ -1,14 +1,17 @@
+import { z } from 'zod';
 import { ensureJiraCredentials, loadResolvedConfig } from '../config.js';
 import { formatIssueList } from '../format.js';
 import { getMyTasks } from '../jira-client.js';
-import type { ResponseFormat } from '../types.js';
+
+export const myTasksSchema = z.object({
+  status: z.string().optional().describe('Filter by status name (e.g. "In Progress", "To Do")'),
+  maxResults: z.number().int().min(1).max(50).optional().describe('Max results (1-50, default 10)'),
+  startAt: z.number().int().min(0).optional().describe('Pagination offset (default 0)'),
+  response_format: z.enum(['json', 'markdown']).optional().describe('Output format (default json)'),
+});
 
 export async function handleMyTasks(args: unknown) {
-  const rawArgs = (args || {}) as Record<string, unknown>;
-  const status = typeof rawArgs.status === 'string' ? rawArgs.status.trim() : undefined;
-  const maxResults = Number(rawArgs.maxResults || 10);
-  const startAt = Number(rawArgs.startAt || 0);
-  const responseFormat = (rawArgs.response_format || 'json') as ResponseFormat;
+  const { status, maxResults, startAt, response_format } = myTasksSchema.parse(args);
 
   const config = await loadResolvedConfig();
   ensureJiraCredentials(config);
@@ -22,7 +25,7 @@ export async function handleMyTasks(args: unknown) {
     warnings: config.warnings,
   };
   return {
-    text: formatIssueList('My Jira Tasks', responseFormat, payload),
+    text: formatIssueList('My Jira Tasks', response_format ?? 'json', payload),
     data: payload,
   };
 }

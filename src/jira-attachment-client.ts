@@ -9,7 +9,7 @@ import {
 import { getIssue } from './jira-issue-read.js';
 
 export async function downloadAttachment(config: ResolvedConfig, input: DownloadAttachmentInput): Promise<DownloadedAttachment> {
-  const issue = await getIssue(config, input.key);
+  const issue = await getIssue(config, input.key, { expandChangelog: false });
   const attachment = (issue.fields.attachment || []).find((item) => item.filename === input.filename);
   if (!attachment) { throw new Error(`Attachment not found on ${input.key}: ${input.filename}`); }
   if (attachment.size > config.security.maxAttachmentSizeBytes) {

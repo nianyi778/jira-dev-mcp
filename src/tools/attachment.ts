@@ -1,16 +1,18 @@
+import { z } from 'zod';
 import { ensureJiraCredentials, loadResolvedConfig } from '../config.js';
 import { formatAttachment } from '../format.js';
 import { downloadAttachment } from '../jira-client.js';
-import type { ResponseFormat } from '../types.js';
+
+export const downloadAttachmentSchema = z.object({
+  key: z.string().describe('Jira issue key (e.g. AT-123)'),
+  filename: z.string().describe('Attachment filename as listed in jira_read_task'),
+  response_format: z.enum(['json', 'markdown']).optional().describe('Output format (default json)'),
+});
 
 export async function handleDownloadAttachment(args: unknown) {
-  if (!args || typeof args !== 'object') {
-    throw new Error('jira_download_attachment requires key and filename');
-  }
-
-  const key = String((args as Record<string, unknown>).key || '').trim().toUpperCase();
-  const filename = String((args as Record<string, unknown>).filename || '').trim();
-  const responseFormat = ((args as Record<string, unknown>).response_format || 'json') as ResponseFormat;
+  const { key: rawKey, filename: rawFilename, response_format } = downloadAttachmentSchema.parse(args);
+  const key = rawKey.trim().toUpperCase();
+  const filename = rawFilename.trim();
   if (!key || !filename) {
     throw new Error('jira_download_attachment requires key and filename');
   }
@@ -24,7 +26,7 @@ export async function handleDownloadAttachment(args: unknown) {
     warnings: config.warnings,
   };
   return {
-    text: formatAttachment(responseFormat, payload),
+    text: formatAttachment(response_format ?? 'json', payload),
     data: payload,
   };
 }
