@@ -161,7 +161,7 @@ async function main() {
     console.error('  1. Go to https://developer.atlassian.com/console/myapps/');
     console.error('  2. Create → OAuth 2.0 integration');
     console.error(`  3. Add callback URL: ${REDIRECT_URI}`);
-    console.error('  4. Add scopes: read:jira-work  read:jira-user  offline_access');
+    console.error(`  4. Add scopes: ${SCOPES.join('  ')}`);
     console.error('  5. Copy the Client ID and Secret, then set:');
     console.error('       export JIRA_CLIENT_ID=<id>');
     console.error('       export JIRA_CLIENT_SECRET=<secret>');
