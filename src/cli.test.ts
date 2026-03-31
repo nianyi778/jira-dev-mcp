@@ -1,10 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockRegisterDefaultClients = vi.fn();
+const mockSetCommentMode = vi.fn();
 
 vi.mock('./client-setup.js', () => ({
   registerDefaultClients: mockRegisterDefaultClients,
 }));
+
+vi.mock('./config.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./config.js')>();
+  return {
+    ...actual,
+    setCommentMode: mockSetCommentMode,
+    CONFIG_PATH: '/tmp/jira-dev-config.json',
+  };
+});
 
 describe('cmdSetup', () => {
   beforeEach(() => {
@@ -52,5 +62,24 @@ describe('cmdSetup', () => {
     await expect(cmdSetup()).rejects.toThrow('process.exit');
     expect(errorSpy).toHaveBeenCalledWith('✗ Claude Code: Config file is not valid JSON: /tmp/.claude.json');
     expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+});
+
+describe('cmdConfigSetCommentMode', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+  });
+
+  it('saves comment mode preference', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    mockSetCommentMode.mockResolvedValue({ commentMode: 'manual' });
+
+    const { cmdConfigSetCommentMode } = await import('./cli.js');
+    await cmdConfigSetCommentMode(['manual']);
+
+    expect(mockSetCommentMode).toHaveBeenCalledWith('manual');
+    expect(logSpy).toHaveBeenCalledWith('Comment mode set to manual');
+    expect(logSpy).toHaveBeenCalledWith('Saved to /tmp/jira-dev-config.json');
   });
 });

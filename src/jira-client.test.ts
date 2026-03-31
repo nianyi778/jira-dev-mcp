@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { addComment, downloadAttachment, getMyTasks, readIssue, searchIssues } from './jira-client.js';
+import { addComment, addCommentWithConfirmation, downloadAttachment, editCommentWithConfirmation, getMyTasks, readIssue, searchIssues } from './jira-client.js';
 import type { ResolvedConfig } from './types.js';
 
 const config: ResolvedConfig = {
@@ -10,6 +10,9 @@ const config: ResolvedConfig = {
     token: 'token-123',
   },
   projects: {},
+  preferences: {
+    commentMode: 'auto',
+  },
   security: {
     maxAttachmentSizeBytes: 10 * 1024 * 1024,
     allowedMimeTypes: [
@@ -226,6 +229,7 @@ describe('jira-client integration', () => {
       size: 120,
     });
     expect(result.comments.enabled).toBe(true);
+    expect(result.comments.items[0].id).toBe('c1');
     expect(result.comments.items[0].bodyPlainText).toContain('Please verify retry logic');
     expect(result.changelog.items[0].items[0]).toMatchObject({
       field: 'status',
@@ -366,8 +370,92 @@ describe('jira-client integration', () => {
 
     const result = await addComment(config, { key: 'AT-101', body: 'Please verify in staging' });
     expect(result).toEqual({
+      posted: true,
+      requiresConfirmation: false,
       commentId: '1001',
       url: 'https://example.atlassian.net/browse/AT-101?focusedCommentId=1001',
+      preview: {
+        key: 'AT-101',
+        body: 'Please verify in staging',
+      },
+      mode: 'auto',
     });
+  });
+
+  it('returns a preview in manual mode until confirmed', async () => {
+    global.fetch = vi.fn() as typeof fetch;
+
+    const result = await addCommentWithConfirmation(
+      {
+        ...config,
+        preferences: { commentMode: 'manual' },
+      },
+      { key: 'AT-101', body: 'Looks good to me' },
+      'session-a',
+    );
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(result.posted).toBe(false);
+    expect(result.requiresConfirmation).toBe(true);
+    expect(result.preview.body).toBe('Looks good to me');
+    expect(result.reminder).toContain('可配置为自动发送');
+    expect(result.confirmationToken).toBeTruthy();
+  });
+
+  it('requires a matching confirmation token before posting in manual mode', async () => {
+    let called = 0;
+    global.fetch = vi.fn(async () => {
+      called++;
+      return jsonResponse({ id: '1002' });
+    }) as typeof fetch;
+
+    const manualConfig = {
+      ...config,
+      preferences: { commentMode: 'manual' as const },
+    };
+    const preview = await addCommentWithConfirmation(
+      manualConfig,
+      { key: 'AT-101', body: 'Ship it' },
+      'session-b',
+    );
+    expect(preview.posted).toBe(false);
+
+    const confirmed = await addCommentWithConfirmation(
+      manualConfig,
+      { key: 'AT-101', body: 'Ship it', confirmToken: preview.confirmationToken },
+      'session-b',
+    );
+
+    expect(called).toBe(1);
+    expect(confirmed.posted).toBe(true);
+    expect(confirmed.commentId).toBe('1002');
+  });
+
+  it('edits a comment after manual confirmation with matching token', async () => {
+    global.fetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.method).toBe('PUT');
+      return jsonResponse({ id: 'c9' });
+    }) as typeof fetch;
+
+    const manualConfig = {
+      ...config,
+      preferences: { commentMode: 'manual' as const },
+    };
+    const preview = await editCommentWithConfirmation(
+      manualConfig,
+      { key: 'AT-101', commentId: 'c9', body: 'Edited body' },
+      'session-edit',
+    );
+    expect(preview.posted).toBe(false);
+    expect(preview.preview.commentId).toBe('c9');
+
+    const confirmed = await editCommentWithConfirmation(
+      manualConfig,
+      { key: 'AT-101', commentId: 'c9', body: 'Edited body', confirmToken: preview.confirmationToken },
+      'session-edit',
+    );
+    expect(confirmed.posted).toBe(true);
+    expect(confirmed.commentId).toBe('c9');
+    expect(confirmed.url).toContain('focusedCommentId=c9');
   });
 });

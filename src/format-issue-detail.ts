@@ -44,7 +44,7 @@ export function formatIssueDetail(
     lines.push('');
     lines.push(`## Comments (${issue.comments.items.length}/${issue.comments.total})`);
     for (const comment of issue.comments.items) {
-      lines.push(`- ${comment.author || 'Unknown'} @ ${comment.created}`);
+      lines.push(`- ${comment.author || 'Unknown'} @ ${comment.created} [id: ${comment.id}]`);
       lines.push(`  ${comment.bodyPlainText || '(empty)'}`);
     }
   }

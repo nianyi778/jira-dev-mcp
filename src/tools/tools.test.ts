@@ -9,6 +9,8 @@ const mockReadIssue = vi.fn();
 const mockDownloadAttachment = vi.fn();
 const mockGetMyTasks = vi.fn();
 const mockAddComment = vi.fn();
+const mockAddCommentWithConfirmation = vi.fn();
+const mockEditCommentWithConfirmation = vi.fn();
 
 vi.mock('../config.js', () => ({
   loadResolvedConfig: mockLoadResolvedConfig,
@@ -23,6 +25,8 @@ vi.mock('../jira-client.js', () => ({
   downloadAttachment: mockDownloadAttachment,
   getMyTasks: mockGetMyTasks,
   addComment: mockAddComment,
+  addCommentWithConfirmation: mockAddCommentWithConfirmation,
+  editCommentWithConfirmation: mockEditCommentWithConfirmation,
 }));
 
 describe('tool handlers', () => {
@@ -38,6 +42,7 @@ describe('tool handlers', () => {
         token: 'token',
       },
       projects: { AT: '/tmp/backend' },
+      preferences: { commentMode: 'manual' },
       security: {
         maxAttachmentSizeBytes: 10485760,
         allowedMimeTypes: ['text/*'],
@@ -204,18 +209,56 @@ describe('tool handlers', () => {
   });
 
   it('handleAddComment validates input and forwards the request', async () => {
-    mockAddComment.mockResolvedValue({ commentId: 'c-1', url: 'https://example.atlassian.net/browse/AT-101?focusedCommentId=c-1' });
+    mockAddCommentWithConfirmation.mockResolvedValue({
+      posted: false,
+      requiresConfirmation: true,
+      commentId: '',
+      url: '',
+      preview: { key: 'AT-101', body: 'Looks good' },
+      mode: 'manual',
+      reminder: '当前为手动确认模式。',
+      confirmationToken: 'token-123',
+    });
 
     const { handleAddComment } = await import('./comment.js');
     const result = await handleAddComment({ key: 'at-101', body: 'Looks good' });
 
-    expect(mockAddComment).toHaveBeenCalledWith(expect.anything(), { key: 'AT-101', body: 'Looks good' });
-    expect(result.commentId).toBe('c-1');
+    expect(mockAddCommentWithConfirmation).toHaveBeenCalledWith(expect.anything(), { key: 'AT-101', body: 'Looks good', confirmToken: undefined }, undefined);
+    expect(result.requiresConfirmation).toBe(true);
   });
 
   it('handleAddComment throws on missing key or body', async () => {
     const { handleAddComment } = await import('./comment.js');
     await expect(handleAddComment({ key: '', body: 'hi' })).rejects.toThrow('requires key and body');
     await expect(handleAddComment({ key: 'AT-101', body: '' })).rejects.toThrow('requires key and body');
+  });
+
+  it('handleEditComment validates input and forwards the request', async () => {
+    mockEditCommentWithConfirmation.mockResolvedValue({
+      posted: false,
+      requiresConfirmation: true,
+      commentId: 'c-1',
+      url: '',
+      preview: { key: 'AT-101', commentId: 'c-1', body: 'Updated text' },
+      mode: 'manual',
+      confirmationToken: 'token-456',
+    });
+
+    const { handleEditComment } = await import('./comment.js');
+    const result = await handleEditComment({ key: 'at-101', commentId: 'c-1', body: 'Updated text' });
+
+    expect(mockEditCommentWithConfirmation).toHaveBeenCalledWith(
+      expect.anything(),
+      { key: 'AT-101', commentId: 'c-1', body: 'Updated text', confirmToken: undefined },
+      undefined,
+    );
+    expect(result.requiresConfirmation).toBe(true);
+  });
+
+  it('handleEditComment throws on missing key, commentId, or body', async () => {
+    const { handleEditComment } = await import('./comment.js');
+    await expect(handleEditComment({ key: '', commentId: 'c-1', body: 'hi' })).rejects.toThrow('requires key, commentId, and body');
+    await expect(handleEditComment({ key: 'AT-101', commentId: '', body: 'hi' })).rejects.toThrow('requires key, commentId, and body');
+    await expect(handleEditComment({ key: 'AT-101', commentId: 'c-1', body: '' })).rejects.toThrow('requires key, commentId, and body');
   });
 });

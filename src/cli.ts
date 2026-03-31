@@ -33,6 +33,7 @@ Commands:
   upgrade             Upgrade jira-dev-mcp to the latest version
   setup               Register this MCP server with Claude Code / OpenCode
   config set-path     Map a Jira project key to a local repo path
+  config set-comment-mode  Set comment confirmation mode (manual|auto)
 
 Options:
   -v, --version       Show version number
@@ -46,6 +47,7 @@ Examples:
   jira-dev upgrade
   jira-dev setup
   jira-dev config set-path AT /path/to/your/repo
+  jira-dev config set-comment-mode manual
 `;
 
 const COMMAND_HELP: Record<string, string> = {
@@ -75,6 +77,7 @@ Usage: jira-dev config <subcommand>
 
 Subcommands:
   set-path <PROJECT_KEY> <LOCAL_PATH>   Map a Jira project to a local directory
+  set-comment-mode <manual|auto>        Set comment confirmation behavior
 `,
 };
 
@@ -265,6 +268,18 @@ export async function cmdConfigSetPath(args: string[]): Promise<void> {
   console.log(`Saved to ${CONFIG_PATH}`);
 }
 
+export async function cmdConfigSetCommentMode(args: string[]): Promise<void> {
+  const [mode] = args;
+  if (mode !== 'manual' && mode !== 'auto') {
+    console.error('Usage: jira-dev config set-comment-mode <manual|auto>');
+    process.exit(1);
+  }
+  const { setCommentMode, CONFIG_PATH } = await import('./config.js');
+  const result = await setCommentMode(mode);
+  console.log(`Comment mode set to ${result.commentMode}`);
+  console.log(`Saved to ${CONFIG_PATH}`);
+}
+
 export async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
     args: process.argv.slice(2),
@@ -321,6 +336,8 @@ export async function main(): Promise<void> {
       const [sub, ...subArgs] = rest;
       if (sub === 'set-path') {
         await cmdConfigSetPath(subArgs);
+      } else if (sub === 'set-comment-mode') {
+        await cmdConfigSetCommentMode(subArgs);
       } else {
         console.log(COMMAND_HELP['config']);
       }

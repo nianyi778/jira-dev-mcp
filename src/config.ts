@@ -13,6 +13,7 @@ export const CONFIG_PATH = resolve(CONFIG_DIR, 'config.json');
 export const KEYCHAIN_SERVICE = 'jira-dev-mcp:JIRA_TOKEN';
 
 const DEFAULT_MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
+const DEFAULT_COMMENT_MODE = 'manual';
 
 // TTL cache for resolved config (avoids repeated disk reads + keychain subprocess per tool call)
 const CONFIG_CACHE_TTL_MS = 60_000;
@@ -139,6 +140,9 @@ async function _loadResolvedConfig(): Promise<ResolvedConfig> {
         token: oauth.accessToken,
       },
       projects: fileConfig.projects || {},
+      preferences: {
+        commentMode: fileConfig.preferences?.commentMode || DEFAULT_COMMENT_MODE,
+      },
       security: {
         maxAttachmentSizeBytes: fileConfig.security?.maxAttachmentSizeBytes || DEFAULT_MAX_ATTACHMENT_SIZE,
         allowedMimeTypes: fileConfig.security?.allowedMimeTypes || DEFAULT_ALLOWED_MIME_TYPES,
@@ -167,6 +171,9 @@ async function _loadResolvedConfig(): Promise<ResolvedConfig> {
       token,
     },
     projects: fileConfig.projects || {},
+    preferences: {
+      commentMode: fileConfig.preferences?.commentMode || DEFAULT_COMMENT_MODE,
+    },
     security: {
       maxAttachmentSizeBytes:
         fileConfig.security?.maxAttachmentSizeBytes || DEFAULT_MAX_ATTACHMENT_SIZE,
@@ -206,6 +213,22 @@ export async function setProjectPath(projectKey: string, localPath: string): Pro
 export async function getProjectPath(projectKey: string): Promise<string | null> {
   const config = await loadUserConfig();
   return config.projects?.[projectKey.trim().toUpperCase()] || null;
+}
+
+export async function setCommentMode(mode: 'manual' | 'auto'): Promise<{ commentMode: 'manual' | 'auto' }> {
+  const config = await loadUserConfig();
+  config.preferences = {
+    ...(config.preferences || {}),
+    commentMode: mode,
+  };
+  await saveUserConfig(config);
+  clearConfigCache();
+  return { commentMode: mode };
+}
+
+export async function getCommentMode(): Promise<'manual' | 'auto'> {
+  const config = await loadUserConfig();
+  return config.preferences?.commentMode || DEFAULT_COMMENT_MODE;
 }
 
 export async function configFileExists(): Promise<boolean> {

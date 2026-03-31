@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockRegisterTool = vi.fn();
 const mockConnect = vi.fn();
+const mockHandleAddComment = vi.fn();
+const mockHandleEditComment = vi.fn();
 const mockServerCtor = vi.fn(function(this: { registerTool: typeof mockRegisterTool; connect: typeof mockConnect }) {
   this.registerTool = mockRegisterTool;
   this.connect = mockConnect;
@@ -32,21 +34,38 @@ vi.mock('./tools/project.js', () => ({
   handleGetProjectPath: vi.fn().mockResolvedValue({ text: 'project path result' }),
 }));
 vi.mock('./tools/comment.js', () => ({
-  handleAddComment: vi.fn().mockResolvedValue({ commentId: 'c-1', url: 'https://example/comment' }),
+  handleAddComment: mockHandleAddComment,
+  handleEditComment: mockHandleEditComment,
 }));
 
 describe('createServer', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    mockHandleAddComment.mockResolvedValue({
+      posted: true,
+      requiresConfirmation: false,
+      commentId: 'c-1',
+      url: 'https://example/comment',
+      preview: { key: 'AT-1', body: 'ok' },
+      mode: 'auto',
+    });
+    mockHandleEditComment.mockResolvedValue({
+      posted: true,
+      requiresConfirmation: false,
+      commentId: 'c-1',
+      url: 'https://example/comment',
+      preview: { key: 'AT-1', commentId: 'c-1', body: 'revised' },
+      mode: 'auto',
+    });
   });
 
   it('registers all supported tools with the expected server metadata', async () => {
     const { createServer } = await import('./index.js');
     createServer();
 
-    expect(mockServerCtor).toHaveBeenCalledWith({ name: 'jira-dev-mcp', version: '1.1.6' });
-    expect(mockRegisterTool).toHaveBeenCalledTimes(7);
+    expect(mockServerCtor).toHaveBeenCalledWith({ name: 'jira-dev-mcp', version: '1.1.7' });
+    expect(mockRegisterTool).toHaveBeenCalledTimes(8);
     expect(mockRegisterTool.mock.calls.map((call) => call[0])).toEqual([
       'jira_search_issues',
       'jira_read_task',
@@ -55,21 +74,67 @@ describe('createServer', () => {
       'jira_set_project_path',
       'jira_get_project_path',
       'jira_add_comment',
+      'jira_edit_comment',
     ]);
   });
 
-  it('wraps handler output into MCP text content', async () => {
+  it('wraps add/edit comment handler output into MCP text content', async () => {
     const { createServer } = await import('./index.js');
     createServer();
 
     const searchToolHandler = mockRegisterTool.mock.calls.find((call) => call[0] === 'jira_search_issues')?.[2];
     const commentToolHandler = mockRegisterTool.mock.calls.find((call) => call[0] === 'jira_add_comment')?.[2];
+    const editCommentToolHandler = mockRegisterTool.mock.calls.find((call) => call[0] === 'jira_edit_comment')?.[2];
 
     await expect(searchToolHandler({ query: 'login' })).resolves.toEqual({
       content: [{ type: 'text', text: 'search result' }],
     });
     await expect(commentToolHandler({ key: 'AT-1', body: 'ok' })).resolves.toEqual({
-      content: [{ type: 'text', text: 'Comment posted successfully.\n\nView comment: https://example/comment' }],
+      content: [{ type: 'text', text: 'Comment posted successfully.\n\nView comment: https://example/comment\n\nTo edit it later, use jira_edit_comment with commentId=c-1.' }],
+    });
+    await expect(editCommentToolHandler({ key: 'AT-1', commentId: 'c-1', body: 'revised' })).resolves.toEqual({
+      content: [{ type: 'text', text: 'Comment updated successfully.\n\nView comment: https://example/comment' }],
+    });
+  });
+
+  it('returns preview responses for add/edit comment confirmation flow', async () => {
+    mockHandleAddComment.mockResolvedValue({
+      posted: false,
+      requiresConfirmation: true,
+      commentId: '',
+      url: '',
+      preview: { key: 'AT-1', body: 'ok' },
+      mode: 'manual',
+      reminder: '当前为手动确认模式。',
+      confirmationToken: 'token-123',
+    });
+    mockHandleEditComment.mockResolvedValue({
+      posted: false,
+      requiresConfirmation: true,
+      commentId: 'c-1',
+      url: '',
+      preview: { key: 'AT-1', commentId: 'c-1', body: 'revised' },
+      mode: 'manual',
+      confirmationToken: 'token-edit',
+    });
+
+    const { createServer } = await import('./index.js');
+    createServer();
+
+    const commentToolHandler = mockRegisterTool.mock.calls.find((call) => call[0] === 'jira_add_comment')?.[2];
+    const editCommentToolHandler = mockRegisterTool.mock.calls.find((call) => call[0] === 'jira_edit_comment')?.[2];
+
+    await expect(commentToolHandler({ key: 'AT-1', body: 'ok' }, { sessionId: 'session-a' })).resolves.toEqual({
+      content: [{
+        type: 'text',
+        text: 'Comment preview:\n\nIssue: AT-1\nBody:\nok\n\nConfirmation token: token-123\nReply with confirm_token=<token> to send this change.\n\n当前为手动确认模式。',
+      }],
+    });
+    await expect(editCommentToolHandler({ key: 'AT-1', commentId: 'c-1', body: 'revised' }, { sessionId: 'session-b' })).resolves.toEqual({
+      content: [{
+        type: 'text',
+        text: 'Comment edit preview:\n\nIssue: AT-1\nComment ID: c-1\nBody:\nrevised\n\nConfirmation token: token-edit\nReply with confirm_token=<token> to send this change.',
+      }],
     });
   });
 });

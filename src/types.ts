@@ -20,6 +20,9 @@ export interface JiraConfigInput {
 export interface UserConfig {
   jira?: JiraConfigInput;
   projects?: Record<string, string>;
+  preferences?: {
+    commentMode?: 'manual' | 'auto';
+  };
   security?: {
     maxAttachmentSizeBytes?: number;
     allowedMimeTypes?: string[];
@@ -35,6 +38,9 @@ export interface ResolvedConfig {
     token?: string;
   };
   projects: Record<string, string>;
+  preferences: {
+    commentMode: 'manual' | 'auto';
+  };
   security: {
     maxAttachmentSizeBytes: number;
     allowedMimeTypes: string[];
@@ -260,9 +266,27 @@ export interface MyTasksInput {
 export interface AddCommentInput {
   key: string;
   body: string;
+  confirmToken?: string;
+}
+
+export interface EditCommentInput {
+  key: string;
+  commentId: string;
+  body: string;
+  confirmToken?: string;
 }
 
 export interface AddCommentResult {
+  posted: boolean;
+  requiresConfirmation: boolean;
   commentId: string;
   url: string;
+  preview: {
+    key: string;
+    commentId?: string;
+    body: string;
+  };
+  mode: 'manual' | 'auto';
+  reminder?: string;
+  confirmationToken?: string;
 }

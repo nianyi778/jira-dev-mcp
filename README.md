@@ -17,6 +17,8 @@ A local MCP server for Jira Cloud-driven development. Connects Claude Code, Open
 - OAuth 2.0 (3LO) browser-based login — no manual token management
 - Auto-refresh OAuth tokens before expiry
 - Post comments on Jira issues with clickable URL response
+- Manual confirmation by default before posting comments, with optional auto-send mode
+- Edit existing comments with the same confirmation flow
 - Auto-retry on transient API errors (429/503)
 - Read and write Jira access
 
@@ -117,6 +119,7 @@ If an existing config file contains invalid JSON, `jira-dev setup` now fails wit
 | `jira_download_attachment` | Download and parse attachments |
 | `jira_my_tasks` | List issues assigned to you |
 | `jira_add_comment` | Post a comment; returns clickable URL |
+| `jira_edit_comment` | Edit an existing comment; supports preview + confirm flow |
 | `jira_set_project_path` | Map a Jira project to a local repo path |
 | `jira_get_project_path` | Get the local path for a project |
 
@@ -127,6 +130,7 @@ jira-dev status    # Show current auth mode, token state, and mapped projects
 jira-dev doctor    # Run environment and config health checks
 jira-dev upgrade   # Upgrade jira-dev-mcp from npm
 jira-dev setup     # Register jira-dev into supported MCP clients
+jira-dev config set-comment-mode manual   # Require confirmation before posting comments
 ```
 
 ## Development Workflow

@@ -17,6 +17,8 @@
 - OAuth 2.0 (3LO) 浏览器登录，无需手动管理 Token
 - OAuth Token 过期前自动刷新
 - 支持在 Issue 上发表评论，返回可直接跳转的评论 URL
+- 评论默认手动确认后发送，也可配置为自动发送
+- 支持修改已有评论，并复用相同的确认流程
 - 遇到限流/服务异常（429/503）自动重试
 - 支持读写 Jira 权限
 
@@ -100,6 +102,7 @@ jira-dev setup
 | `jira_download_attachment` | 下载并解析附件 |
 | `jira_my_tasks` | 列出分配给自己的任务 |
 | `jira_add_comment` | 发表评论，返回可直达的评论 URL |
+| `jira_edit_comment` | 修改已有评论，支持预览后确认 |
 | `jira_set_project_path` | 映射 Jira 项目到本地仓库路径 |
 | `jira_get_project_path` | 查询项目的本地路径 |
 
@@ -110,6 +113,7 @@ jira-dev status    # 查看当前认证状态、Token 状态和项目映射
 jira-dev doctor    # 执行环境与配置健康检查
 jira-dev upgrade   # 从 npm 升级 jira-dev-mcp
 jira-dev setup     # 向支持的 MCP 客户端注册 jira-dev
+jira-dev config set-comment-mode manual   # 设置评论发送前是否需要确认
 ```
 
 ## 标准使用流程

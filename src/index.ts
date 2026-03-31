@@ -1,5 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import type { ServerNotification, ServerRequest } from '@modelcontextprotocol/sdk/types.js';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { realpathSync } from 'node:fs';
@@ -9,10 +11,30 @@ import { handleReadTask } from './tools/read-task.js';
 import { handleDownloadAttachment } from './tools/attachment.js';
 import { handleMyTasks } from './tools/my-tasks.js';
 import { handleSetProjectPath, handleGetProjectPath } from './tools/project.js';
-import { handleAddComment } from './tools/comment.js';
+import { handleAddComment, handleEditComment } from './tools/comment.js';
 
 function textContent(text: string) {
   return { content: [{ type: 'text' as const, text }] };
+}
+
+function formatCommentPreview(actionLabel: string, result: Awaited<ReturnType<typeof handleAddComment>>) {
+  const lines = [
+    `${actionLabel} preview:`,
+    '',
+    `Issue: ${result.preview.key}`,
+  ];
+  if (result.preview.commentId) {
+    lines.push(`Comment ID: ${result.preview.commentId}`);
+  }
+  lines.push('Body:');
+  lines.push(result.preview.body);
+  lines.push('');
+  lines.push(`Confirmation token: ${result.confirmationToken}`);
+  lines.push('Reply with confirm_token=<token> to send this change.');
+  if (result.reminder) {
+    lines.push('', result.reminder);
+  }
+  return textContent(lines.join('\n'));
 }
 
 const TOOL_DEFINITIONS = [
@@ -104,10 +126,31 @@ const TOOL_DEFINITIONS = [
     inputSchema: {
       key: z.string().describe('Jira issue key (e.g. AT-123)'),
       body: z.string().describe('Comment text (plain text, will be wrapped in ADF paragraph)'),
+      confirm_token: z.string().optional().describe('Confirmation token returned by the preview step in manual mode'),
     },
-    handler: async (args: unknown) => {
-      const result = await handleAddComment(args);
-      return textContent(`Comment posted successfully.\n\nView comment: ${result.url}`);
+    handler: async (args: unknown, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
+      const result = await handleAddComment(args, extra);
+      if (!result.posted) {
+        return formatCommentPreview('Comment', result);
+      }
+      return textContent(`Comment posted successfully.\n\nView comment: ${result.url}\n\nTo edit it later, use jira_edit_comment with commentId=${result.commentId}.`);
+    },
+  },
+  {
+    name: 'jira_edit_comment',
+    description: 'Edit an existing Jira comment. In manual mode, returns a preview first and requires confirm_token to apply the update.',
+    inputSchema: {
+      key: z.string().describe('Jira issue key (e.g. AT-123)'),
+      commentId: z.string().describe('Existing Jira comment id'),
+      body: z.string().describe('Updated comment text (plain text, will be wrapped in ADF paragraph)'),
+      confirm_token: z.string().optional().describe('Confirmation token returned by the preview step in manual mode'),
+    },
+    handler: async (args: unknown, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
+      const result = await handleEditComment(args, extra);
+      if (!result.posted) {
+        return formatCommentPreview('Comment edit', result);
+      }
+      return textContent(`Comment updated successfully.\n\nView comment: ${result.url}`);
     },
   },
 ] as const;
@@ -115,7 +158,7 @@ const TOOL_DEFINITIONS = [
 export function createServer(): McpServer {
   const server = new McpServer({
     name: 'jira-dev-mcp',
-    version: '1.1.6',
+    version: '1.1.7',
   });
 
   for (const tool of TOOL_DEFINITIONS) {

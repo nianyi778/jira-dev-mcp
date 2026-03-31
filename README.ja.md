@@ -17,6 +17,8 @@ Jira Cloud 連携のローカル MCP サーバー。Claude Code、OpenCode、Cod
 - OAuth 2.0 (3LO) ブラウザログイン — トークンの手動管理不要
 - OAuth トークンの有効期限前に自動リフレッシュ
 - Issue へのコメント投稿、クリッカブルな URL を返却
+- コメント投稿はデフォルトで手動確認。自動送信モードにも設定可能
+- 既存コメントの編集にも対応し、同じ確認フローを利用可能
 - 一時的な API エラー（429/503）の自動リトライ
 - Jira への読み書きアクセス
 
@@ -100,6 +102,7 @@ jira-dev setup
 | `jira_download_attachment` | 添付ファイルをダウンロード・解析 |
 | `jira_my_tasks` | 自分に割り当てられたタスク一覧 |
 | `jira_add_comment` | コメントを投稿、クリッカブルな URL を返却 |
+| `jira_edit_comment` | 既存コメントを編集。プレビュー確認フロー対応 |
 | `jira_set_project_path` | Jira プロジェクトとローカルパスをマッピング |
 | `jira_get_project_path` | プロジェクトのローカルパスを取得 |
 
@@ -110,6 +113,7 @@ jira-dev status    # 現在の認証状態、トークン状態、プロジェ�
 jira-dev doctor    # 環境と設定のヘルスチェックを実行
 jira-dev upgrade   # npm から jira-dev-mcp を更新
 jira-dev setup     # 対応する MCP クライアントへ jira-dev を登録
+jira-dev config set-comment-mode manual   # コメント送信前の確認モードを設定
 ```
 
 ## 標準的な使用フロー
