@@ -18,7 +18,11 @@ const DEFAULT_COMMENT_MODE = 'manual';
 // TTL cache for resolved config (avoids repeated disk reads + keychain subprocess per tool call)
 const CONFIG_CACHE_TTL_MS = 60_000;
 let _cachedConfig: { value: ResolvedConfig; expiresAt: number } | null = null;
-export function clearConfigCache(): void { _cachedConfig = null; }
+let _loadConfigPromise: Promise<ResolvedConfig> | null = null;
+export function clearConfigCache(): void {
+  _cachedConfig = null;
+  _loadConfigPromise = null;
+}
 
 // Singleton refresh promise — prevents concurrent token refresh racing (invalid_grant)
 let _refreshPromise: Promise<OAuthTokens> | null = null;
@@ -44,7 +48,8 @@ export async function loadUserConfig(): Promise<UserConfig> {
     if (code === 'ENOENT') {
       return {};
     }
-    throw new Error(`Failed to read config file ${CONFIG_PATH}`);
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to read config file ${CONFIG_PATH}: ${detail}`);
   }
 }
 
@@ -107,9 +112,15 @@ export async function loadResolvedConfig(): Promise<ResolvedConfig> {
     return _cachedConfig.value;
   }
 
-  const result = await _loadResolvedConfig();
-  _cachedConfig = { value: result, expiresAt: now + CONFIG_CACHE_TTL_MS };
-  return result;
+  if (!_loadConfigPromise) {
+    _loadConfigPromise = _loadResolvedConfig()
+      .then((result) => {
+        _cachedConfig = { value: result, expiresAt: Date.now() + CONFIG_CACHE_TTL_MS };
+        return result;
+      })
+      .finally(() => { _loadConfigPromise = null; });
+  }
+  return _loadConfigPromise;
 }
 
 async function _loadResolvedConfig(): Promise<ResolvedConfig> {

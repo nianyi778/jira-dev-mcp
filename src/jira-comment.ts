@@ -18,11 +18,22 @@ function buildContextKey(contextKey?: string): string {
   return contextKey || DEFAULT_REMINDER_CONTEXT;
 }
 
+function evictExpiredConfirmations(): void {
+  const now = Date.now();
+  for (const [token, pending] of pendingCommentConfirmations) {
+    if (pending.expiresAt < now) {
+      pendingCommentConfirmations.delete(token);
+    }
+  }
+}
+
 function createCommentPreview(
   input: AddCommentInput | EditCommentInput,
   contextKey?: string,
   action: 'add' | 'edit' = 'add',
 ): AddCommentResult {
+  evictExpiredConfirmations();
+
   const resolvedContextKey = buildContextKey(contextKey);
   const confirmationToken = randomUUID();
   pendingCommentConfirmations.set(confirmationToken, {
@@ -34,10 +45,16 @@ function createCommentPreview(
     expiresAt: Date.now() + CONFIRMATION_TTL_MS,
   });
 
-  const reminder = remindedContexts.has(resolvedContextKey)
-    ? undefined
-    : '当前为手动确认模式。发送评论前我会先列出拟发送内容并等待确认。这个行为可配置为自动发送。';
-  remindedContexts.add(resolvedContextKey);
+  // When contextKey is undefined (no sessionId from transport), always show the reminder —
+  // we cannot track per-session state without an identifier.
+  const hasSession = Boolean(contextKey);
+  const reminder = !hasSession || !remindedContexts.has(resolvedContextKey)
+    ? '当前为手动确认模式。发送评论前我会先列出拟发送内容并等待确认。这个行为可配置为自动发送。'
+    : undefined;
+  if (hasSession) {
+    if (remindedContexts.size > 500) { remindedContexts.clear(); }
+    remindedContexts.add(resolvedContextKey);
+  }
 
   return {
     posted: false,
@@ -153,7 +170,8 @@ export async function addCommentWithConfirmation(
 
     const resolvedContextKey = buildContextKey(contextKey);
     if (pending.action !== 'add' || pending.key !== input.key || pending.body !== input.body || pending.contextKey !== resolvedContextKey) {
-      return createCommentPreview(input, contextKey, 'add');
+      pendingCommentConfirmations.delete(input.confirmToken);
+      throw new Error('Confirmation token does not match the pending comment. The comment body or issue key may have changed. Please request a new preview.');
     }
 
     pendingCommentConfirmations.delete(input.confirmToken);
@@ -195,7 +213,8 @@ export async function editCommentWithConfirmation(
       || pending.body !== input.body
       || pending.contextKey !== resolvedContextKey
     ) {
-      return createCommentPreview(input, contextKey, 'edit');
+      pendingCommentConfirmations.delete(input.confirmToken);
+      throw new Error('Confirmation token does not match the pending edit. The comment body, issue key, or comment ID may have changed. Please request a new preview.');
     }
 
     pendingCommentConfirmations.delete(input.confirmToken);

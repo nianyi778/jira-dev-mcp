@@ -1,7 +1,17 @@
+import { z } from 'zod';
 import { ensureJiraCredentials, getProjectPath, loadResolvedConfig } from '../config.js';
 import { formatIssueDetail } from '../format.js';
 import { readIssue } from '../jira-client.js';
-import type { ResponseFormat } from '../types.js';
+
+export const readTaskSchema = z.object({
+  key: z.string().describe('Jira issue key (e.g. AT-123)'),
+  includeComments: z.boolean().optional().describe('Include comments (default false)'),
+  commentStartAt: z.number().int().min(0).optional().describe('Comment pagination offset'),
+  commentMaxResults: z.number().int().min(1).max(50).optional().describe('Max comments (1-50, default 20)'),
+  changelogStartAt: z.number().int().min(0).optional().describe('Changelog pagination offset'),
+  changelogMaxResults: z.number().int().min(1).max(100).optional().describe('Max changelog entries (1-100, default 20)'),
+  response_format: z.enum(['json', 'markdown']).optional().describe('Output format (default json)'),
+});
 
 function inferProjectKey(key: string): string {
   const match = key.toUpperCase().match(/^([A-Z][A-Z0-9]+)-\d+$/);
@@ -12,21 +22,11 @@ function inferProjectKey(key: string): string {
 }
 
 export async function handleReadTask(args: unknown) {
-  if (!args || typeof args !== 'object') {
-    throw new Error('jira_read_task requires key');
-  }
-
-  const key = String((args as Record<string, unknown>).key || '').trim().toUpperCase();
+  const { key: rawKey, includeComments, commentStartAt, commentMaxResults, changelogStartAt, changelogMaxResults, response_format } = readTaskSchema.parse(args);
+  const key = rawKey.trim().toUpperCase();
   if (!key) {
     throw new Error('jira_read_task requires key');
   }
-
-  const includeComments = Boolean((args as Record<string, unknown>).includeComments);
-  const commentStartAt = Number((args as Record<string, unknown>).commentStartAt || 0);
-  const commentMaxResults = Number((args as Record<string, unknown>).commentMaxResults || 20);
-  const changelogStartAt = Number((args as Record<string, unknown>).changelogStartAt || 0);
-  const changelogMaxResults = Number((args as Record<string, unknown>).changelogMaxResults || 20);
-  const responseFormat = ((args as Record<string, unknown>).response_format || 'json') as ResponseFormat;
 
   const config = await loadResolvedConfig();
   ensureJiraCredentials(config);
@@ -55,7 +55,7 @@ export async function handleReadTask(args: unknown) {
     warnings: config.warnings,
   };
   return {
-    text: formatIssueDetail(responseFormat, payload),
+    text: formatIssueDetail(response_format ?? 'json', payload),
     data: payload,
   };
 }

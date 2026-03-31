@@ -1,18 +1,18 @@
+import { z } from 'zod';
 import { ensureJiraCredentials, loadResolvedConfig } from '../config.js';
 import { formatIssueList } from '../format.js';
 import { searchIssues } from '../jira-client.js';
-import type { ResponseFormat } from '../types.js';
+
+export const searchIssuesSchema = z.object({
+  query: z.string().describe('Search query (keywords or JQL)'),
+  maxResults: z.number().int().min(1).max(50).optional().describe('Max results to return (1-50, default 10)'),
+  startAt: z.number().int().min(0).optional().describe('Pagination offset (default 0)'),
+  response_format: z.enum(['json', 'markdown']).optional().describe('Output format (default json)'),
+});
 
 export async function handleJiraSearch(args: unknown) {
-  if (!args || typeof args !== 'object') {
-    throw new Error('jira_search_issues requires query');
-  }
-
-  const query = String((args as Record<string, unknown>).query || '').trim();
-  const maxResults = Number((args as Record<string, unknown>).maxResults || 10);
-  const startAt = Number((args as Record<string, unknown>).startAt || 0);
-  const responseFormat = ((args as Record<string, unknown>).response_format || 'json') as ResponseFormat;
-  if (!query) {
+  const { query, maxResults, startAt, response_format } = searchIssuesSchema.parse(args);
+  if (!query.trim()) {
     throw new Error('jira_search_issues requires query');
   }
 
@@ -27,7 +27,7 @@ export async function handleJiraSearch(args: unknown) {
     warnings: config.warnings,
   };
   return {
-    text: formatIssueList('Jira Search Results', responseFormat, payload),
+    text: formatIssueList('Jira Search Results', response_format ?? 'json', payload),
     data: payload,
   };
 }

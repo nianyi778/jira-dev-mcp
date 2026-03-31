@@ -81,8 +81,11 @@ function paginateChangelog(issue: JiraIssue, startAt: number, maxResults: number
   };
 }
 
-export async function getIssue(config: ResolvedConfig, key: string): Promise<JiraIssue> {
-  const params = new URLSearchParams({ fields: DEFAULT_FIELDS, expand: 'changelog' });
+export async function getIssue(config: ResolvedConfig, key: string, options?: { expandChangelog?: boolean }): Promise<JiraIssue> {
+  const params = new URLSearchParams({ fields: DEFAULT_FIELDS });
+  if (options?.expandChangelog !== false) {
+    params.set('expand', 'changelog');
+  }
   return jiraRequest<JiraIssue>(config, `/rest/api/3/issue/${encodeURIComponent(key)}?${params.toString()}`);
 }
 

@@ -1,7 +1,13 @@
+import { z } from 'zod';
 import { ensureJiraCredentials, getProjectPath, loadResolvedConfig } from '../config.js';
 import { readIssue } from '../jira-client.js';
 import { formatAnalysisWorkflow } from '../format-analysis.js';
-import type { ResponseFormat } from '../types.js';
+
+export const analyzeTaskSchema = z.object({
+  input: z.string().describe('Jira issue key (e.g. AT-123) or full browse URL (e.g. https://xxx.atlassian.net/browse/AT-123)'),
+  auto_comment: z.boolean().optional().describe('Automatically post the completed analysis as a comment without asking for confirmation (default true)'),
+  response_format: z.enum(['json', 'markdown']).optional().describe('Output format (default markdown)'),
+});
 
 export function parseIssueKey(input: string): string {
   const trimmed = input.trim();
@@ -29,20 +35,15 @@ function inferProjectKey(key: string): string {
 }
 
 export async function handleAnalyzeTask(args: unknown) {
-  if (!args || typeof args !== 'object') {
-    throw new Error('jira_analyze_task requires input');
-  }
-
-  const rawInput = String((args as Record<string, unknown>).input || '').trim();
-  if (!rawInput) {
+  const { input: rawInput, auto_comment: autoCommentRaw, response_format } = analyzeTaskSchema.parse(args);
+  const trimmedInput = rawInput.trim();
+  if (!trimmedInput) {
     throw new Error('jira_analyze_task requires input (issue key or URL)');
   }
-
-  const autoCommentRaw = (args as Record<string, unknown>).auto_comment;
   const autoComment = autoCommentRaw !== false && autoCommentRaw !== null;
-  const responseFormat = ((args as Record<string, unknown>).response_format || 'markdown') as ResponseFormat;
+  const responseFormat = response_format ?? 'markdown';
 
-  const key = parseIssueKey(rawInput);
+  const key = parseIssueKey(trimmedInput);
   const projectKey = inferProjectKey(key);
 
   const config = await loadResolvedConfig();
