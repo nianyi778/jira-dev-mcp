@@ -92,6 +92,7 @@ describe('tool handlers', () => {
       labels: ['login'],
       parent: null,
       subtasks: [],
+      linkedIssues: [],
       attachments: [],
       comments: {
         enabled: false,
@@ -260,5 +261,130 @@ describe('tool handlers', () => {
     await expect(handleEditComment({ key: '', commentId: 'c-1', body: 'hi' })).rejects.toThrow('requires key, commentId, and body');
     await expect(handleEditComment({ key: 'AT-101', commentId: '', body: 'hi' })).rejects.toThrow('requires key, commentId, and body');
     await expect(handleEditComment({ key: 'AT-101', commentId: 'c-1', body: '' })).rejects.toThrow('requires key, commentId, and body');
+  });
+
+  it('handleAnalyzeTask parses plain key and returns bug-category workflow', async () => {
+    mockReadIssue.mockResolvedValue({
+      key: 'AT-101',
+      summary: 'Login page crashes',
+      descriptionPlainText: 'Crash after oauth callback',
+      status: 'In Progress',
+      assignee: 'Kai Li',
+      issueType: 'Bug',
+      priority: 'High',
+      labels: [],
+      parent: null,
+      subtasks: [],
+      linkedIssues: [],
+      attachments: [],
+      comments: { enabled: true, startAt: 0, maxResults: 10, total: 0, items: [] },
+      changelog: { startAt: 0, maxResults: 5, total: 0, items: [] },
+    });
+
+    const { handleAnalyzeTask } = await import('./analyze-task.js');
+    const result = await handleAnalyzeTask({ input: 'AT-101', response_format: 'markdown' });
+
+    expect(mockReadIssue).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ key: 'AT-101', includeComments: true }));
+    expect(result.data.project.localPath).toBe('/tmp/backend');
+    expect(result.data.existingAnalysisCommentId).toBeNull();
+    expect(result.text).toContain('category: bug');
+    expect(result.text).toContain('バグ修正分析');
+    expect(result.text).toContain('再現手順');
+    expect(result.text).toContain('Step 2b — Baseline');
+    expect(result.text).toContain('Step 2c — Implement');
+  });
+
+  it('handleAnalyzeTask parses full browse URL', async () => {
+    mockReadIssue.mockResolvedValue({
+      key: 'AT-202',
+      summary: 'Add payment feature',
+      descriptionPlainText: 'Implement Stripe integration',
+      status: 'To Do',
+      assignee: null,
+      issueType: 'Story',
+      priority: 'Medium',
+      labels: [],
+      parent: null,
+      subtasks: [],
+      linkedIssues: [],
+      attachments: [],
+      comments: { enabled: true, startAt: 0, maxResults: 10, total: 0, items: [] },
+      changelog: { startAt: 0, maxResults: 5, total: 0, items: [] },
+    });
+
+    const { handleAnalyzeTask } = await import('./analyze-task.js');
+    const result = await handleAnalyzeTask({ input: 'https://example.atlassian.net/browse/AT-202' });
+
+    expect(mockReadIssue).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ key: 'AT-202' }));
+    expect(result.text).toContain('category: story');
+    expect(result.text).toContain('機能実装分析');
+    expect(result.text).toContain('受け入れ条件');
+  });
+
+  it('handleAnalyzeTask detects existing analysis comment (idempotency)', async () => {
+    mockReadIssue.mockResolvedValue({
+      key: 'AT-303',
+      summary: 'Fix null pointer',
+      descriptionPlainText: 'NPE in checkout',
+      status: 'Done',
+      assignee: 'Kai Li',
+      issueType: 'Bug',
+      priority: 'High',
+      labels: [],
+      parent: null,
+      subtasks: [],
+      linkedIssues: [],
+      attachments: [],
+      comments: {
+        enabled: true,
+        startAt: 0,
+        maxResults: 10,
+        total: 1,
+        items: [{ id: 'c-999', author: 'bot', created: '2024-01-01', updated: null, bodyPlainText: '【AT-303】バグ修正分析\n...' }],
+      },
+      changelog: { startAt: 0, maxResults: 5, total: 0, items: [] },
+    });
+
+    const { handleAnalyzeTask } = await import('./analyze-task.js');
+    const result = await handleAnalyzeTask({ input: 'AT-303', response_format: 'markdown' });
+
+    expect(result.data.existingAnalysisCommentId).toBe('c-999');
+    expect(result.text).toContain('Analysis already posted');
+    expect(result.text).toContain('jira_edit_comment');
+    expect(result.text).toContain('c-999');
+  });
+
+  it('handleAnalyzeTask throws on invalid input', async () => {
+    const { handleAnalyzeTask } = await import('./analyze-task.js');
+    await expect(handleAnalyzeTask({ input: 'not-a-key' })).rejects.toThrow('Cannot parse issue key');
+    await expect(handleAnalyzeTask({ input: '' })).rejects.toThrow('requires input');
+  });
+
+  it('handleAnalyzeTask shows linked issues and attachment download hint', async () => {
+    mockReadIssue.mockResolvedValue({
+      key: 'AT-404',
+      summary: 'Performance regression',
+      descriptionPlainText: 'Slow query',
+      status: 'Open',
+      assignee: null,
+      issueType: 'Bug',
+      priority: 'Critical',
+      labels: [],
+      parent: null,
+      subtasks: [],
+      linkedIssues: [{ key: 'AT-400', summary: 'Related perf issue', status: 'Done', relation: 'relates to' }],
+      attachments: [{ filename: 'flamegraph.png', mimeType: 'image/png', size: 102400, created: null, author: null }],
+      comments: { enabled: true, startAt: 0, maxResults: 10, total: 0, items: [] },
+      changelog: { startAt: 0, maxResults: 5, total: 0, items: [] },
+    });
+
+    const { handleAnalyzeTask } = await import('./analyze-task.js');
+    const result = await handleAnalyzeTask({ input: 'AT-404', response_format: 'markdown' });
+
+    expect(result.text).toContain('AT-400');
+    expect(result.text).toContain('relates to');
+    expect(result.text).toContain('flamegraph.png');
+    expect(result.text).toContain('Step 0');
+    expect(result.text).toContain('jira_download_attachment');
   });
 });

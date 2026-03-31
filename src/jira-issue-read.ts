@@ -3,9 +3,11 @@ import type {
   IssueChangelogSummary,
   IssueCommentSummary,
   IssueDetail,
+  IssueLinkSummary,
   JiraAttachment,
   JiraCommentPage,
   JiraIssue,
+  JiraIssueLink,
   ReadIssueInput,
   ResolvedConfig,
 } from './types.js';
@@ -14,8 +16,32 @@ import { adfToPlainText } from './jira-adf.js';
 
 const DEFAULT_FIELDS = [
   'summary', 'description', 'status', 'assignee', 'issuetype',
-  'priority', 'labels', 'attachment', 'parent', 'subtasks',
+  'priority', 'labels', 'attachment', 'parent', 'subtasks', 'issuelinks',
 ].join(',');
+
+function mapLinkedIssues(links: JiraIssueLink[] | undefined): IssueLinkSummary[] {
+  if (!links?.length) return [];
+  return links.flatMap((link) => {
+    const results: IssueLinkSummary[] = [];
+    if (link.inwardIssue) {
+      results.push({
+        key: link.inwardIssue.key,
+        summary: link.inwardIssue.fields.summary,
+        status: link.inwardIssue.fields.status?.name || null,
+        relation: link.type.inward,
+      });
+    }
+    if (link.outwardIssue) {
+      results.push({
+        key: link.outwardIssue.key,
+        summary: link.outwardIssue.fields.summary,
+        status: link.outwardIssue.fields.status?.name || null,
+        relation: link.type.outward,
+      });
+    }
+    return results;
+  });
+}
 
 function mapAttachmentSummary(attachment: JiraAttachment): IssueAttachmentSummary {
   return {
@@ -90,6 +116,7 @@ export async function readIssue(config: ResolvedConfig, input: ReadIssueInput): 
       assignee: subtask.fields.assignee?.displayName || null,
       issueType: 'Sub-task', parentKey: issue.key,
     })),
+    linkedIssues: mapLinkedIssues(issue.fields.issuelinks),
     attachments: (issue.fields.attachment || []).map(mapAttachmentSummary),
     comments: {
       enabled: Boolean(input.includeComments),

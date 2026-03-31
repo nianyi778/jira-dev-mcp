@@ -127,6 +127,32 @@ export interface JiraChangelog {
   total?: number;
 }
 
+export interface JiraIssueLinkType {
+  name: string;
+  inward: string;
+  outward: string;
+}
+
+export interface JiraIssueLink {
+  id: string;
+  type: JiraIssueLinkType;
+  inwardIssue?: {
+    key: string;
+    fields: { summary: string; status?: JiraStatus };
+  };
+  outwardIssue?: {
+    key: string;
+    fields: { summary: string; status?: JiraStatus };
+  };
+}
+
+export interface IssueLinkSummary {
+  key: string;
+  summary: string;
+  status: string | null;
+  relation: string;
+}
+
 export interface JiraIssueFields {
   summary: string;
   description?: unknown;
@@ -141,6 +167,7 @@ export interface JiraIssueFields {
     fields?: { summary?: string };
   };
   subtasks?: JiraIssueRef[];
+  issuelinks?: JiraIssueLink[];
 }
 
 export interface JiraIssue {
@@ -204,6 +231,7 @@ export interface IssueDetail {
   labels: string[];
   parent: { key: string; summary: string | null } | null;
   subtasks: IssueSummary[];
+  linkedIssues: IssueLinkSummary[];
   attachments: IssueAttachmentSummary[];
   comments: {
     enabled: boolean;

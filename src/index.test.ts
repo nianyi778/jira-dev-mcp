@@ -37,6 +37,9 @@ vi.mock('./tools/comment.js', () => ({
   handleAddComment: mockHandleAddComment,
   handleEditComment: mockHandleEditComment,
 }));
+vi.mock('./tools/analyze-task.js', () => ({
+  handleAnalyzeTask: vi.fn().mockResolvedValue({ text: 'analysis result' }),
+}));
 
 describe('createServer', () => {
   beforeEach(() => {
@@ -64,8 +67,8 @@ describe('createServer', () => {
     const { createServer } = await import('./index.js');
     createServer();
 
-    expect(mockServerCtor).toHaveBeenCalledWith({ name: 'jira-dev-mcp', version: '1.1.7' });
-    expect(mockRegisterTool).toHaveBeenCalledTimes(8);
+    expect(mockServerCtor).toHaveBeenCalledWith({ name: 'jira-dev-mcp', version: '1.2.0' });
+    expect(mockRegisterTool).toHaveBeenCalledTimes(9);
     expect(mockRegisterTool.mock.calls.map((call) => call[0])).toEqual([
       'jira_search_issues',
       'jira_read_task',
@@ -75,6 +78,7 @@ describe('createServer', () => {
       'jira_get_project_path',
       'jira_add_comment',
       'jira_edit_comment',
+      'jira_analyze_task',
     ]);
   });
 

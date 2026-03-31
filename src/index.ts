@@ -12,6 +12,7 @@ import { handleDownloadAttachment } from './tools/attachment.js';
 import { handleMyTasks } from './tools/my-tasks.js';
 import { handleSetProjectPath, handleGetProjectPath } from './tools/project.js';
 import { handleAddComment, handleEditComment } from './tools/comment.js';
+import { handleAnalyzeTask } from './tools/analyze-task.js';
 
 function textContent(text: string) {
   return { content: [{ type: 'text' as const, text }] };
@@ -54,7 +55,7 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'jira_read_task',
-    description: 'Read full details of a Jira issue including description, subtasks, changelog, labels, priority, parent, and attachments list.',
+    description: 'Read raw details of a Jira issue (description, subtasks, changelog, labels, priority, parent, attachments). Data-only — does NOT guide analysis or post comments. Use jira_analyze_task when you need the full investigation workflow.',
     inputSchema: {
       key: z.string().describe('Jira issue key (e.g. AT-123)'),
       includeComments: z.boolean().optional().describe('Include comments (default false)'),
@@ -153,12 +154,25 @@ const TOOL_DEFINITIONS = [
       return textContent(`Comment updated successfully.\n\nView comment: ${result.url}`);
     },
   },
+  {
+    name: 'jira_analyze_task',
+    description: 'Full investigation and fix workflow for a Jira issue. Accepts an issue key (AT-123) or full browse URL. Reads the issue, prior comments, linked issues, and attachments; detects duplicate analysis (idempotency); selects a type-aware template (Bug/Story/Task); and provides step-by-step SOP: explore code → plan → baseline test → implement → build verify → post analysis comment. Use this instead of jira_read_task when you want to drive the full workflow end-to-end.',
+    inputSchema: {
+      input: z.string().describe('Jira issue key (e.g. AT-123) or full browse URL (e.g. https://xxx.atlassian.net/browse/AT-123)'),
+      auto_comment: z.boolean().optional().describe('Automatically post the completed analysis as a comment without asking for confirmation (default true)'),
+      response_format: z.enum(['json', 'markdown']).optional().describe('Output format (default markdown)'),
+    },
+    handler: async (args: unknown) => {
+      const result = await handleAnalyzeTask(args);
+      return textContent(result.text);
+    },
+  },
 ] as const;
 
 export function createServer(): McpServer {
   const server = new McpServer({
     name: 'jira-dev-mcp',
-    version: '1.1.7',
+    version: '1.2.0',
   });
 
   for (const tool of TOOL_DEFINITIONS) {
