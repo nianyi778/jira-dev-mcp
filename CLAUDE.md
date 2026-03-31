@@ -20,6 +20,30 @@ Examples of when to ask:
 
 Always respond in Chinese (中文) in this project.
 
+## Post-fix PR comment (mandatory)
+
+After completing any fix, **always post a comment on the PR** using this template:
+
+```
+発生原因：
+解決方法：
+処置区分：
+不具合区分：
+作り込み工程：
+発見すべき工程：
+備考：
+```
+
+Common values:
+- 発生原因：実装ミス / 仕様誤解 / マージコンフリクト
+- 解決方法：修正対応
+- 処置区分：PG修正
+- 不具合区分：制御不正 / 表示不正 / データ不正
+- 作り込み工程：実装 / 設計
+- 発見すべき工程：単体テスト / コードレビュー
+
+Use `gh pr comment <number> --body "..."` to post.
+
 ## Workflow
 
 This is a local MCP server. Changes must:
