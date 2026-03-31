@@ -1,126 +1,139 @@
-// Cloudflare Worker Environment
-export interface Env {
-  // Static variables (from wrangler.toml [vars])
-  JIRA_BASE_URL: string;
-  TIMEZONE: string;
-  WORKER_BASE_URL: string; // Base URL for review links (e.g., "https://your-domain.example.com")
-  SUPER_ADMIN_TOKEN: string; // Super admin 6-digit token
-  BRAND_NAME?: string;
-  BRAND_URL?: string;
-  SUPPORT_EMAIL?: string;
-
-  // Secrets (set via wrangler secret put)
-  JIRA_EMAIL: string;
-  JIRA_API_TOKEN: string;
-  GMAIL_CLIENT_ID?: string;
-  GMAIL_CLIENT_SECRET?: string;
-  GMAIL_INTERNAL_REFRESH_TOKEN?: string;
-  GMAIL_INTERNAL_SENDER_EMAIL?: string;
-  GMAIL_INTERNAL_SENDER_NAME?: string;
-  GMAIL_REFRESH_TOKEN?: string;
-  GMAIL_SENDER_EMAIL?: string;
-  GMAIL_SENDER_NAME?: string;
-  SLACK_WEBHOOK_URL?: string; // Slack incoming webhook URL for notifications
-
-  // KV namespace binding (stores reports, config, tokens, logs)
-  REPORT_KV: KVNamespace;
-
-  // D1 database for tokens and logs
-  TOKEN_DB: D1Database;
+export interface OAuthTokens {
+  clientId: string;
+  clientSecret: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: number;
+  cloudId: string;
+  cloudUrl: string;
 }
 
-// Application config (stored in KV)
-export interface AppConfig {
-  parentIssues: string; // Comma-separated parent issue keys (e.g., "AT-878,AT-900")
-  dryRun: boolean; // Skip email sending
-  internalEmail: string; // Internal notification email
-  defaultClientEmail: string; // Default client email for review page
-  defaultCcEmail: string; // Default CC email for review page
-  reviewTokenTtl: number; // Token TTL in seconds (default 86400 = 24h)
-  featureEmailReport: boolean; // Enable daily email report
-  featureSlackReminder: boolean; // Enable Slack incomplete tasks reminder
-  slackChannelName: string; // Slack channel name for display
-}
-
-// Token data (stored in KV as "token:XXXXXX")
-export interface TokenData {
-  note: string; // Required description (e.g., "李凯的手机", "CI/CD")
-  createdAt: string; // ISO timestamp
-  expiresAt: string | null; // ISO timestamp or null for never expires
-  lastUsedAt: string | null; // ISO timestamp of last use
-  isDisabled?: boolean; // Token disabled flag
-}
-
-// Log entry (stored in KV as "log:YYYY-MM-DD")
-export interface LogEntry {
-  token: string; // 6-digit token
-  note: string; // Token note for quick identification
-  endpoint: string; // Requested endpoint
-  method: string; // HTTP method
-  ip: string; // Client IP
-  timestamp: string; // ISO timestamp
-}
-
-// Authentication result
-export interface AuthResult {
-  valid: boolean;
-  isSuperAdmin?: boolean;
+export interface JiraConfigInput {
+  baseUrl?: string;
+  authMode?: 'basic' | 'bearer' | 'oauth';
+  email?: string;
   token?: string;
-  note?: string;
-  error?: string;
+  apiToken?: string;
+  oauth?: OAuthTokens;
 }
 
-// Jira API Types
+export interface UserConfig {
+  jira?: JiraConfigInput;
+  projects?: Record<string, string>;
+  security?: {
+    maxAttachmentSizeBytes?: number;
+    allowedMimeTypes?: string[];
+  };
+}
+
+export interface ResolvedConfig {
+  jira: {
+    baseUrl?: string;
+    authMode: 'basic' | 'bearer';
+    email?: string;
+    token?: string;
+  };
+  projects: Record<string, string>;
+  security: {
+    maxAttachmentSizeBytes: number;
+    allowedMimeTypes: string[];
+  };
+  warnings: string[];
+}
+
 export interface JiraUser {
-  accountId: string;
+  accountId?: string;
   displayName: string;
   emailAddress?: string;
 }
 
 export interface JiraStatus {
+  id?: string;
   name: string;
-  statusCategory: {
-    key: string;
-    name: string;
+  statusCategory?: {
+    key?: string;
+    name?: string;
   };
 }
 
-export interface JiraIssueFields {
-  summary: string;
-  status: JiraStatus;
-  assignee: JiraUser | null;
-  priority: {
-    name: string;
+export interface JiraIssueType {
+  id?: string;
+  name: string;
+}
+
+export interface JiraAttachment {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  content: string;
+  thumbnail?: string;
+  created?: string;
+  author?: JiraUser;
+}
+
+export interface JiraIssueRef {
+  id?: string;
+  key: string;
+  fields: {
+    summary: string;
+    status?: JiraStatus;
+    assignee?: JiraUser | null;
   };
-  parent?: {
-    key: string;
-    fields: {
-      summary: string;
-    };
-  };
+}
+
+export interface JiraComment {
+  id: string;
+  created: string;
+  updated?: string;
+  author?: JiraUser;
+  body?: unknown;
+}
+
+export interface JiraCommentPage {
+  comments: JiraComment[];
+  startAt: number;
+  maxResults: number;
+  total: number;
 }
 
 export interface JiraChangelogItem {
   field: string;
-  fieldtype: string;
-  from: string | null;
-  fromString: string | null;
-  to: string | null;
-  toString: string | null;
+  fieldtype?: string;
+  from?: string | null;
+  fromString?: string | null;
+  to?: string | null;
+  toString?: string | null;
 }
 
 export interface JiraChangelogHistory {
   id: string;
-  author: JiraUser;
+  author?: JiraUser;
   created: string;
   items: JiraChangelogItem[];
 }
 
 export interface JiraChangelog {
-  startAt: number;
-  maxResults: number;
-  total: number;
   histories: JiraChangelogHistory[];
+  startAt?: number;
+  maxResults?: number;
+  total?: number;
+}
+
+export interface JiraIssueFields {
+  summary: string;
+  description?: unknown;
+  status?: JiraStatus;
+  assignee?: JiraUser | null;
+  priority?: { name: string };
+  issuetype?: JiraIssueType;
+  labels?: string[];
+  attachment?: JiraAttachment[];
+  parent?: {
+    key: string;
+    fields?: { summary?: string };
+  };
+  subtasks?: JiraIssueRef[];
 }
 
 export interface JiraIssue {
@@ -131,76 +144,114 @@ export interface JiraIssue {
 }
 
 export interface JiraSearchResponse {
-  expand: string;
+  issues: JiraIssue[];
   startAt: number;
   maxResults: number;
   total: number;
-  issues: JiraIssue[];
 }
 
-// Processed Data Types
-export interface CompletedSubtask {
+export interface IssueSummary {
   key: string;
   summary: string;
-  assignee: string;
-  completedAt: string;
-  completedAtDate: Date;
+  status: string | null;
+  assignee: string | null;
+  issueType: string | null;
+  parentKey: string | null;
 }
 
-export interface ParentTaskReport {
-  parentKey: string;
-  parentSummary: string;
-  completedToday: CompletedSubtask[];
-  totalSubtasks: number;
-  completedSubtasks: number;
-  progressPercent: number;
+export interface IssueAttachmentSummary {
+  filename: string;
+  mimeType: string;
+  size: number;
+  created: string | null;
+  author: string | null;
 }
 
-export interface DailyReport {
-  date: string;
-  reports: ParentTaskReport[];
-  totalCompletedToday: number;
+export interface IssueCommentSummary {
+  id: string;
+  author: string | null;
+  created: string;
+  updated: string | null;
+  bodyPlainText: string;
 }
 
-// Stored Report in KV
-export interface StoredReport {
-  id: string; // Unique token (UUID)
-  createdAt: string; // ISO timestamp
-  expiresAt: string; // Expiration timestamp
-  dailyReport: DailyReport; // Full report data
-  defaultTo: string; // Default recipient email
-  defaultCc: string; // Default CC email
-  defaultSubject: string; // Default email subject
-  defaultBody: string; // Default email body (plain text)
+export interface IssueChangelogSummary {
+  id: string;
+  author: string | null;
+  created: string;
+  items: Array<{
+    field: string;
+    from: string | null;
+    to: string | null;
+  }>;
 }
 
-// Incomplete Tasks Types (for Slack notification)
-export interface IncompleteSubtask {
+export interface IssueDetail {
   key: string;
   summary: string;
-  assignee: string;
-  status: string;
-  statusCategory: string;
-  priority: string;
+  descriptionPlainText: string;
+  status: string | null;
+  assignee: string | null;
+  issueType: string | null;
+  priority: string | null;
+  labels: string[];
+  parent: { key: string; summary: string | null } | null;
+  subtasks: IssueSummary[];
+  attachments: IssueAttachmentSummary[];
+  comments: {
+    enabled: boolean;
+    startAt: number;
+    maxResults: number;
+    total: number;
+    items: IssueCommentSummary[];
+  };
+  changelog: {
+    startAt: number;
+    maxResults: number;
+    total: number;
+    items: IssueChangelogSummary[];
+  };
 }
 
-export interface IncompleteTasksReport {
-  parentKey: string;
-  parentSummary: string;
-  incompleteTasks: IncompleteSubtask[];
-  totalSubtasks: number;
-  completedSubtasks: number;
-  progressPercent: number;
+export interface DownloadedAttachment {
+  issueKey: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  encoding: 'utf8' | 'base64';
+  content: string;
+  truncated: boolean;
+  parsed?: {
+    format: string;
+    parser: 'python';
+    summary: string;
+  };
 }
 
-// Slack Types
-export interface SlackBlock {
-  type: string;
-  text?: { type: string; text: string; emoji?: boolean };
-  elements?: { type: string; text: string }[];
+export type ResponseFormat = 'json' | 'markdown';
+
+export interface SearchIssuesInput {
+  query: string;
+  maxResults?: number;
+  startAt?: number;
 }
 
-export interface SlackMessage {
-  text: string; // Fallback text for notifications
-  blocks?: SlackBlock[];
+export interface ReadIssueInput {
+  key: string;
+  includeComments?: boolean;
+  commentStartAt?: number;
+  commentMaxResults?: number;
+  changelogStartAt?: number;
+  changelogMaxResults?: number;
+}
+
+export interface DownloadAttachmentInput {
+  key: string;
+  filename: string;
+}
+
+export interface MyTasksInput {
+  status?: string;
+  maxResults?: number;
+  startAt?: number;
 }
