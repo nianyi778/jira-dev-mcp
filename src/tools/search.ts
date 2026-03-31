@@ -19,10 +19,11 @@ export async function handleJiraSearch(args: unknown) {
   const config = await loadResolvedConfig();
   ensureJiraCredentials(config);
   const result = await searchIssues(config, { query, maxResults, startAt });
+  const nextOffset = result.startAt + result.issues.length;
   const payload = {
     ...result,
-    has_more: result.startAt + result.issues.length < result.total,
-    next_offset: result.startAt + result.issues.length < result.total ? result.startAt + result.issues.length : null,
+    has_more: result.issues.length > 0 && nextOffset < result.total,
+    next_offset: result.issues.length > 0 && nextOffset < result.total ? nextOffset : null,
     warnings: config.warnings,
   };
   return {

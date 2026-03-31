@@ -187,7 +187,10 @@ function sanitizeErrorBody(text: string): string {
   if (!text) {
     return '';
   }
-  return text.replace(/[A-Za-z0-9_\-]{20,}/g, '[redacted]').slice(0, 500);
+  return text
+    .replace(/[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, '[redacted-jwt]')
+    .replace(/[A-Za-z0-9_\-]{20,}/g, '[redacted]')
+    .slice(0, 500);
 }
 
 
@@ -476,8 +479,11 @@ export async function addComment(config: ResolvedConfig, input: AddCommentInput)
     }
   );
 
-  const browseBase = config.jira.browseUrl ?? config.jira.baseUrl ?? '';
-  const url = `${browseBase}/browse/${input.key}?focusedCommentId=${data.id}`;
+  // browseUrl is the human-facing Jira URL; baseUrl may be api.atlassian.com for OAuth
+  const browseBase = config.jira.browseUrl
+    ?? (config.jira.baseUrl?.startsWith('https://api.atlassian.com') ? '' : config.jira.baseUrl)
+    ?? '';
+  const url = browseBase ? `${browseBase}/browse/${input.key}?focusedCommentId=${data.id}` : '';
 
   return { commentId: data.id, url };
 }

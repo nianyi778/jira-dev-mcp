@@ -12,6 +12,15 @@ export const CONFIG_PATH = resolve(CONFIG_DIR, 'config.json');
 export const KEYCHAIN_SERVICE = 'jira-dev-mcp:JIRA_TOKEN';
 
 const DEFAULT_MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
+
+// TTL cache for resolved config (avoids repeated disk reads + keychain subprocess per tool call)
+const CONFIG_CACHE_TTL_MS = 60_000;
+let _cachedConfig: { value: ResolvedConfig; expiresAt: number } | null = null;
+export function clearConfigCache(): void { _cachedConfig = null; }
+
+// Singleton refresh promise — prevents concurrent token refresh racing (invalid_grant)
+let _refreshPromise: Promise<OAuthTokens> | null = null;
+
 const DEFAULT_ALLOWED_MIME_TYPES = [
   'text/*',
   'application/json',
@@ -56,6 +65,13 @@ async function readKeychainToken(): Promise<string | undefined> {
   }
 }
 
+async function refreshOAuthTokenOnce(oauth: OAuthTokens): Promise<OAuthTokens> {
+  if (!_refreshPromise) {
+    _refreshPromise = refreshOAuthToken(oauth).finally(() => { _refreshPromise = null; });
+  }
+  return _refreshPromise;
+}
+
 async function refreshOAuthToken(oauth: OAuthTokens): Promise<OAuthTokens> {
   const response = await fetch('https://auth.atlassian.com/oauth/token', {
     method: 'POST',
@@ -83,6 +99,17 @@ async function refreshOAuthToken(oauth: OAuthTokens): Promise<OAuthTokens> {
 }
 
 export async function loadResolvedConfig(): Promise<ResolvedConfig> {
+  const now = Date.now();
+  if (_cachedConfig && _cachedConfig.expiresAt > now) {
+    return _cachedConfig.value;
+  }
+
+  const result = await _loadResolvedConfig();
+  _cachedConfig = { value: result, expiresAt: now + CONFIG_CACHE_TTL_MS };
+  return result;
+}
+
+async function _loadResolvedConfig(): Promise<ResolvedConfig> {
   const fileConfig = await loadUserConfig();
   const warnings: string[] = [];
 
@@ -91,9 +118,10 @@ export async function loadResolvedConfig(): Promise<ResolvedConfig> {
     let oauth = fileConfig.jira.oauth;
     if (oauth.expiresAt < Date.now() + 5 * 60 * 1000) {
       try {
-        oauth = await refreshOAuthToken(oauth);
+        oauth = await refreshOAuthTokenOnce(oauth);
         fileConfig.jira = { ...fileConfig.jira, oauth };
         await saveUserConfig(fileConfig);
+        clearConfigCache(); // invalidate cache after token refresh
       } catch (err) {
         warnings.push(
           `OAuth token refresh failed: ${err instanceof Error ? err.message : 'unknown'}. Run jira-mcp-login to re-authenticate.`

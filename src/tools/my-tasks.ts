@@ -14,10 +14,11 @@ export async function handleMyTasks(args: unknown) {
   ensureJiraCredentials(config);
   const result = await getMyTasks(config, { status, maxResults, startAt });
 
+  const nextOffset = result.startAt + result.issues.length;
   const payload = {
     ...result,
-    has_more: result.startAt + result.issues.length < result.total,
-    next_offset: result.startAt + result.issues.length < result.total ? result.startAt + result.issues.length : null,
+    has_more: result.issues.length > 0 && nextOffset < result.total,
+    next_offset: result.issues.length > 0 && nextOffset < result.total ? nextOffset : null,
     warnings: config.warnings,
   };
   return {

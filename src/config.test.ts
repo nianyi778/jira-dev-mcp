@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ensureJiraCredentials, loadResolvedConfig } from './config.js';
+import { clearConfigCache, ensureJiraCredentials, loadResolvedConfig } from './config.js';
 import { buildSearchJql, adfToPlainText } from './jira-client.js';
 import type { UserConfig } from './types.js';
 
@@ -86,6 +86,7 @@ describe('loadResolvedConfig OAuth', () => {
   let writeFileMock: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
+    clearConfigCache();
     const fs = await import('node:fs/promises');
     readFileMock = fs.readFile as ReturnType<typeof vi.fn>;
     writeFileMock = fs.writeFile as ReturnType<typeof vi.fn>;
@@ -93,6 +94,7 @@ describe('loadResolvedConfig OAuth', () => {
   });
 
   afterEach(() => {
+    clearConfigCache();
     vi.clearAllMocks();
     vi.unstubAllGlobals();
   });
