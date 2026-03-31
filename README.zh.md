@@ -16,7 +16,9 @@
 - 将 Jira 项目 Key 映射到本地仓库路径
 - OAuth 2.0 (3LO) 浏览器登录，无需手动管理 Token
 - OAuth Token 过期前自动刷新
-- 默认只读 Jira 权限
+- 支持在 Issue 上发表评论，返回可直接跳转的评论 URL
+- 遇到限流/服务异常（429/503）自动重试
+- 支持读写 Jira 权限
 
 ## 安装
 
@@ -28,19 +30,15 @@ npm install -g jira-dev-mcp
 
 ### 方式 A：OAuth 2.0（推荐）
 
-1. 在 [developer.atlassian.com/console/myapps](https://developer.atlassian.com/console/myapps/) 创建 OAuth 2.0 应用
-   - 添加回调 URL：`http://localhost:3737/callback`
-   - 添加 Scope：`read:jira-work`、`read:jira-user`、`offline_access`
-
-2. 运行登录命令：
+直接运行：
 
 ```bash
-export JIRA_CLIENT_ID=<你的-client-id>
-export JIRA_CLIENT_SECRET=<你的-client-secret>
-jira-mcp-login
+jira-dev login
 ```
 
-Token 自动保存到 `~/.jira-dev/config.json` 并在过期前自动刷新。
+浏览器自动打开 Jira 授权页面，授权完成后 Token 自动保存到 `~/.jira-dev/config.json` 并在过期前自动刷新。无需手动配置 Client ID 或 Secret。
+
+> **高级用法**：如需使用自己的 OAuth 应用，在运行 `jira-dev login` 前设置 `JIRA_CLIENT_ID` 和 `JIRA_CLIENT_SECRET`。
 
 ### 方式 B：API Token（Basic Auth）
 
@@ -58,25 +56,35 @@ security add-generic-password -a "$USER" -s "jira-dev-mcp:JIRA_TOKEN" -w "你的
 
 ## MCP 客户端配置
 
-### Claude Code（`~/.claude/mcp.json`）
+### 自动注册（最简单）
+
+```bash
+jira-dev setup
+```
+
+自动写入 `~/.claude.json`（Claude Code）和 `~/.opencode/config.json`（OpenCode）。
+
+### 手动配置 — Claude Code（`~/.claude.json`）
 
 ```json
 {
   "mcpServers": {
     "jira": {
-      "command": "jira-mcp-server"
+      "command": "jira-dev",
+      "args": ["server"]
     }
   }
 }
 ```
 
-### OpenCode / Codex
+### 手动配置 — OpenCode / Codex
 
 ```json
 {
   "mcpServers": {
     "jira": {
-      "command": "jira-mcp-server"
+      "command": "jira-dev",
+      "args": ["server"]
     }
   }
 }
@@ -90,6 +98,7 @@ security add-generic-password -a "$USER" -s "jira-dev-mcp:JIRA_TOKEN" -w "你的
 | `jira_read_task` | 读取 Issue 完整详情 |
 | `jira_download_attachment` | 下载并解析附件 |
 | `jira_my_tasks` | 列出分配给自己的任务 |
+| `jira_add_comment` | 发表评论，返回可直达的评论 URL |
 | `jira_set_project_path` | 映射 Jira 项目到本地仓库路径 |
 | `jira_get_project_path` | 查询项目的本地路径 |
 

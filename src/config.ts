@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { OAuthTokens, ResolvedConfig, UserConfig } from './types.js';
+import { BUILTIN_CLIENT_SECRET } from './defaults.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -80,7 +81,8 @@ async function refreshOAuthToken(oauth: OAuthTokens): Promise<OAuthTokens> {
     body: JSON.stringify({
       grant_type: 'refresh_token',
       client_id: oauth.clientId,
-      client_secret: oauth.clientSecret,
+      // Prefer env var override, then built-in secret; never rely on persisted clientSecret in config.json
+      client_secret: process.env.JIRA_CLIENT_SECRET || BUILTIN_CLIENT_SECRET,
       refresh_token: oauth.refreshToken,
     }),
   });

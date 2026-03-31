@@ -16,7 +16,9 @@ A local MCP server for Jira Cloud-driven development. Connects Claude Code, Open
 - Map Jira project keys to local repository paths
 - OAuth 2.0 (3LO) browser-based login — no manual token management
 - Auto-refresh OAuth tokens before expiry
-- Read-only Jira access by default
+- Post comments on Jira issues with clickable URL response
+- Auto-retry on transient API errors (429/503)
+- Read and write Jira access
 
 ## Install
 
@@ -28,19 +30,15 @@ npm install -g jira-dev-mcp
 
 ### Option A: OAuth 2.0 (Recommended)
 
-1. Create an OAuth 2.0 app at [developer.atlassian.com/console/myapps](https://developer.atlassian.com/console/myapps/)
-   - Add callback URL: `http://localhost:3737/callback`
-   - Add scopes: `read:jira-work`, `read:jira-user`, `offline_access`
-
-2. Run the login command:
+Just run:
 
 ```bash
-export JIRA_CLIENT_ID=<your-client-id>
-export JIRA_CLIENT_SECRET=<your-client-secret>
-jira-mcp-login
+jira-dev login
 ```
 
-Tokens are saved to `~/.jira-dev/config.json` and auto-refreshed.
+A browser window opens for Jira authorization. Tokens are saved to `~/.jira-dev/config.json` and auto-refreshed. No manual Client ID or Secret required.
+
+> **Advanced**: To use your own OAuth app, set `JIRA_CLIENT_ID` and `JIRA_CLIENT_SECRET` before running `jira-dev login`.
 
 ### Option B: API Token (Basic Auth)
 
@@ -58,25 +56,35 @@ security add-generic-password -a "$USER" -s "jira-dev-mcp:JIRA_TOKEN" -w "your-t
 
 ## MCP Client Configuration
 
-### Claude Code (`~/.claude/mcp.json`)
+### Auto-register (easiest)
+
+```bash
+jira-dev setup
+```
+
+This writes to `~/.claude.json` (Claude Code) and `~/.opencode/config.json` (OpenCode) automatically.
+
+### Manual — Claude Code (`~/.claude.json`)
 
 ```json
 {
   "mcpServers": {
     "jira": {
-      "command": "jira-mcp-server"
+      "command": "jira-dev",
+      "args": ["server"]
     }
   }
 }
 ```
 
-### OpenCode / Codex
+### Manual — OpenCode / Codex
 
 ```json
 {
   "mcpServers": {
     "jira": {
-      "command": "jira-mcp-server"
+      "command": "jira-dev",
+      "args": ["server"]
     }
   }
 }
@@ -107,6 +115,7 @@ security add-generic-password -a "$USER" -s "jira-dev-mcp:JIRA_TOKEN" -w "your-t
 | `jira_read_task` | Read full issue details |
 | `jira_download_attachment` | Download and parse attachments |
 | `jira_my_tasks` | List issues assigned to you |
+| `jira_add_comment` | Post a comment; returns clickable URL |
 | `jira_set_project_path` | Map a Jira project to a local repo path |
 | `jira_get_project_path` | Get the local path for a project |
 

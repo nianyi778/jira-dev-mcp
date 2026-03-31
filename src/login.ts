@@ -200,9 +200,9 @@ async function main() {
 
   const site = await pickSite(resources);
 
+  // Do not persist clientSecret — runtime value comes from defaults.ts or env var
   const oauth: OAuthTokens = {
     clientId,
-    clientSecret,
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token,
     expiresAt: Date.now() + tokens.expires_in * 1000,

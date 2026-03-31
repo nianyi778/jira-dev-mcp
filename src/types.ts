@@ -1,6 +1,6 @@
 export interface OAuthTokens {
   clientId: string;
-  clientSecret: string;
+  clientSecret?: string;  // not persisted after v1.1.3; runtime value from defaults.ts or env var
   accessToken: string;
   refreshToken: string;
   expiresAt: number;

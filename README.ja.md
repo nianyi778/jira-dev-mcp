@@ -16,7 +16,9 @@ Jira Cloud 連携のローカル MCP サーバー。Claude Code、OpenCode、Cod
 - Jira プロジェクトキーとローカルリポジトリパスのマッピング
 - OAuth 2.0 (3LO) ブラウザログイン — トークンの手動管理不要
 - OAuth トークンの有効期限前に自動リフレッシュ
-- デフォルトで Jira への読み取り専用アクセス
+- Issue へのコメント投稿、クリッカブルな URL を返却
+- 一時的な API エラー（429/503）の自動リトライ
+- Jira への読み書きアクセス
 
 ## インストール
 
@@ -28,19 +30,15 @@ npm install -g jira-dev-mcp
 
 ### 方法 A：OAuth 2.0（推奨）
 
-1. [developer.atlassian.com/console/myapps](https://developer.atlassian.com/console/myapps/) で OAuth 2.0 アプリを作成
-   - コールバック URL を追加：`http://localhost:3737/callback`
-   - スコープを追加：`read:jira-work`、`read:jira-user`、`offline_access`
-
-2. ログインコマンドを実行：
+次のコマンドを実行するだけです：
 
 ```bash
-export JIRA_CLIENT_ID=<your-client-id>
-export JIRA_CLIENT_SECRET=<your-client-secret>
-jira-mcp-login
+jira-dev login
 ```
 
-トークンは `~/.jira-dev/config.json` に保存され、期限前に自動更新されます。
+ブラウザが自動的に開き Jira 認証画面が表示されます。認証後、トークンは `~/.jira-dev/config.json` に保存され、有効期限前に自動更新されます。Client ID や Secret の手動設定は不要です。
+
+> **上級者向け**：独自の OAuth アプリを使用する場合は、`jira-dev login` の前に `JIRA_CLIENT_ID` と `JIRA_CLIENT_SECRET` を設定してください。
 
 ### 方法 B：API トークン（Basic 認証）
 
@@ -58,25 +56,35 @@ security add-generic-password -a "$USER" -s "jira-dev-mcp:JIRA_TOKEN" -w "your-t
 
 ## MCP クライアント設定
 
-### Claude Code（`~/.claude/mcp.json`）
+### 自動登録（最も簡単）
+
+```bash
+jira-dev setup
+```
+
+`~/.claude.json`（Claude Code）と `~/.opencode/config.json`（OpenCode）に自動で書き込まれます。
+
+### 手動設定 — Claude Code（`~/.claude.json`）
 
 ```json
 {
   "mcpServers": {
     "jira": {
-      "command": "jira-mcp-server"
+      "command": "jira-dev",
+      "args": ["server"]
     }
   }
 }
 ```
 
-### OpenCode / Codex
+### 手動設定 — OpenCode / Codex
 
 ```json
 {
   "mcpServers": {
     "jira": {
-      "command": "jira-mcp-server"
+      "command": "jira-dev",
+      "args": ["server"]
     }
   }
 }
@@ -90,6 +98,7 @@ security add-generic-password -a "$USER" -s "jira-dev-mcp:JIRA_TOKEN" -w "your-t
 | `jira_read_task` | Issue の全詳細を取得 |
 | `jira_download_attachment` | 添付ファイルをダウンロード・解析 |
 | `jira_my_tasks` | 自分に割り当てられたタスク一覧 |
+| `jira_add_comment` | コメントを投稿、クリッカブルな URL を返却 |
 | `jira_set_project_path` | Jira プロジェクトとローカルパスをマッピング |
 | `jira_get_project_path` | プロジェクトのローカルパスを取得 |
 
