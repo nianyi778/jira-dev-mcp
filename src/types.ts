@@ -29,6 +29,7 @@ export interface UserConfig {
 export interface ResolvedConfig {
   jira: {
     baseUrl?: string;
+    browseUrl?: string;
     authMode: 'basic' | 'bearer';
     email?: string;
     token?: string;
@@ -254,4 +255,14 @@ export interface MyTasksInput {
   status?: string;
   maxResults?: number;
   startAt?: number;
+}
+
+export interface AddCommentInput {
+  key: string;
+  body: string;
+}
+
+export interface AddCommentResult {
+  commentId: string;
+  url: string;
 }

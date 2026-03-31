@@ -1,4 +1,6 @@
 import type {
+  AddCommentInput,
+  AddCommentResult,
   DownloadAttachmentInput,
   DownloadedAttachment,
   IssueAttachmentSummary,
@@ -448,5 +450,35 @@ export async function getMyTasks(config: ResolvedConfig, input: MyTasksInput): P
     maxResults: input.maxResults,
     startAt: input.startAt,
   });
+}
+
+export async function addComment(config: ResolvedConfig, input: AddCommentInput): Promise<AddCommentResult> {
+  const body = {
+    body: {
+      type: 'doc',
+      version: 1,
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: input.body }],
+        },
+      ],
+    },
+  };
+
+  const data = await jiraRequest<{ id: string }>(
+    config,
+    `/rest/api/3/issue/${encodeURIComponent(input.key)}/comment`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }
+  );
+
+  const browseBase = config.jira.browseUrl ?? config.jira.baseUrl ?? '';
+  const url = `${browseBase}/browse/${input.key}?focusedCommentId=${data.id}`;
+
+  return { commentId: data.id, url };
 }
 

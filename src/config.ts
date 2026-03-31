@@ -104,6 +104,7 @@ export async function loadResolvedConfig(): Promise<ResolvedConfig> {
     return {
       jira: {
         baseUrl: `https://api.atlassian.com/ex/jira/${oauth.cloudId}`,
+        browseUrl: oauth.cloudUrl,
         authMode: 'bearer',
         token: oauth.accessToken,
       },

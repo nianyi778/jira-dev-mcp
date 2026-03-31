@@ -6,6 +6,7 @@ import { handleReadTask } from './tools/read-task.js';
 import { handleDownloadAttachment } from './tools/attachment.js';
 import { handleMyTasks } from './tools/my-tasks.js';
 import { handleSetProjectPath, handleGetProjectPath } from './tools/project.js';
+import { handleAddComment } from './tools/comment.js';
 
 const server = new McpServer({
   name: 'jira-dev-mcp',
@@ -111,6 +112,30 @@ server.registerTool(
   async (args) => {
     const result = await handleGetProjectPath(args);
     return { content: [{ type: 'text', text: result.text }] };
+  }
+);
+
+server.registerTool(
+  'jira_add_comment',
+  {
+    description: 'Post a comment on a Jira issue. Returns the comment URL so you can verify it directly.',
+    inputSchema: {
+      key: z.string().describe('Jira issue key (e.g. AT-123)'),
+      body: z.string().describe('Comment text (plain text, will be wrapped in ADF paragraph)'),
+    },
+  },
+  async (args) => {
+    const result = await handleAddComment(args);
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          commentId: result.commentId,
+          url: result.url,
+          message: `Comment posted. View at: ${result.url}`,
+        }, null, 2),
+      }],
+    };
   }
 );
 
