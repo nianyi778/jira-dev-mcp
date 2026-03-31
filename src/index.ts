@@ -172,7 +172,7 @@ const TOOL_DEFINITIONS = [
 export function createServer(): McpServer {
   const server = new McpServer({
     name: 'jira-dev-mcp',
-    version: '1.2.0',
+    version: '1.2.1',
   });
 
   for (const tool of TOOL_DEFINITIONS) {
