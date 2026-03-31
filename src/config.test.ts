@@ -18,6 +18,15 @@ describe('buildSearchJql', () => {
       'project = AT AND status = "In Progress"'
     );
   });
+
+  it('does not misclassify natural language containing and/or as raw jql', () => {
+    expect(buildSearchJql('login and token refresh')).toBe(
+      'text ~ "login and token refresh" ORDER BY updated DESC'
+    );
+    expect(buildSearchJql('oauth or sso')).toBe(
+      'text ~ "oauth or sso" ORDER BY updated DESC'
+    );
+  });
 });
 
 describe('adfToPlainText', () => {

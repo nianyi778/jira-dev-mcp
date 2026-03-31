@@ -8,6 +8,7 @@ const mockSearchIssues = vi.fn();
 const mockReadIssue = vi.fn();
 const mockDownloadAttachment = vi.fn();
 const mockGetMyTasks = vi.fn();
+const mockAddComment = vi.fn();
 
 vi.mock('../config.js', () => ({
   loadResolvedConfig: mockLoadResolvedConfig,
@@ -21,6 +22,7 @@ vi.mock('../jira-client.js', () => ({
   readIssue: mockReadIssue,
   downloadAttachment: mockDownloadAttachment,
   getMyTasks: mockGetMyTasks,
+  addComment: mockAddComment,
 }));
 
 describe('tool handlers', () => {
@@ -199,5 +201,21 @@ describe('tool handlers', () => {
 
     expect(result.data.localPath).toBeNull();
     expect(result.text).toContain('no configured local path');
+  });
+
+  it('handleAddComment validates input and forwards the request', async () => {
+    mockAddComment.mockResolvedValue({ commentId: 'c-1', url: 'https://example.atlassian.net/browse/AT-101?focusedCommentId=c-1' });
+
+    const { handleAddComment } = await import('./comment.js');
+    const result = await handleAddComment({ key: 'at-101', body: 'Looks good' });
+
+    expect(mockAddComment).toHaveBeenCalledWith(expect.anything(), { key: 'AT-101', body: 'Looks good' });
+    expect(result.commentId).toBe('c-1');
+  });
+
+  it('handleAddComment throws on missing key or body', async () => {
+    const { handleAddComment } = await import('./comment.js');
+    await expect(handleAddComment({ key: '', body: 'hi' })).rejects.toThrow('requires key and body');
+    await expect(handleAddComment({ key: 'AT-101', body: '' })).rejects.toThrow('requires key and body');
   });
 });

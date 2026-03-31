@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { downloadAttachment, getMyTasks, readIssue, searchIssues } from './jira-client.js';
+import { addComment, downloadAttachment, getMyTasks, readIssue, searchIssues } from './jira-client.js';
 import type { ResolvedConfig } from './types.js';
 
 const config: ResolvedConfig = {
@@ -278,6 +278,49 @@ describe('jira-client integration', () => {
     });
   });
 
+  it('downloadAttachment retries transient attachment download failures', async () => {
+    let attachmentFetchCount = 0;
+    global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/rest/api/3/issue/AT-101?')) {
+        return jsonResponse({
+          id: '10001',
+          key: 'AT-101',
+          fields: {
+            summary: 'Login page crashes',
+            attachment: [
+              {
+                id: 'a1',
+                filename: 'error-log.txt',
+                mimeType: 'text/plain',
+                size: 24,
+                content: 'https://files.example/error-log.txt',
+              },
+            ],
+          },
+          changelog: { histories: [] },
+        });
+      }
+
+      if (url === 'https://files.example/error-log.txt') {
+        attachmentFetchCount++;
+        if (attachmentFetchCount === 1) {
+          return new Response('busy', { status: 503 });
+        }
+        return new Response('stacktrace line 2', {
+          status: 200,
+          headers: { 'content-type': 'text/plain' },
+        });
+      }
+
+      throw new Error(`Unexpected URL: ${url}`);
+    }) as typeof fetch;
+
+    const result = await downloadAttachment(config, { key: 'AT-101', filename: 'error-log.txt' });
+    expect(attachmentFetchCount).toBe(2);
+    expect(result.content).toBe('stacktrace line 2');
+  });
+
   it('getMyTasks builds a currentUser JQL query', async () => {
     global.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -304,5 +347,27 @@ describe('jira-client integration', () => {
 
     const result = await getMyTasks(config, { status: 'In Progress', maxResults: 1, startAt: 0 });
     expect(result.issues[0].key).toBe('AT-200');
+  });
+
+  it('addComment posts adf and returns a browse url', async () => {
+    global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      expect(url).toContain('/rest/api/3/issue/AT-101/comment');
+      expect(init?.method).toBe('POST');
+      expect(init?.body).toBe(JSON.stringify({
+        body: {
+          type: 'doc',
+          version: 1,
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Please verify in staging' }] }],
+        },
+      }));
+      return jsonResponse({ id: '1001' });
+    }) as typeof fetch;
+
+    const result = await addComment(config, { key: 'AT-101', body: 'Please verify in staging' });
+    expect(result).toEqual({
+      commentId: '1001',
+      url: 'https://example.atlassian.net/browse/AT-101?focusedCommentId=1001',
+    });
   });
 });

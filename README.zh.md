@@ -62,7 +62,8 @@ security add-generic-password -a "$USER" -s "jira-dev-mcp:JIRA_TOKEN" -w "你的
 jira-dev setup
 ```
 
-自动写入 `~/.claude.json`（Claude Code）和 `~/.opencode/config.json`（OpenCode）。
+自动创建或更新 `~/.claude.json`（Claude Code）和 `~/.opencode/config.json`（OpenCode）。
+如果现有配置文件不是合法 JSON，`jira-dev setup` 会明确报错，而不是静默跳过。
 
 ### 手动配置 — Claude Code（`~/.claude.json`）
 
@@ -101,6 +102,15 @@ jira-dev setup
 | `jira_add_comment` | 发表评论，返回可直达的评论 URL |
 | `jira_set_project_path` | 映射 Jira 项目到本地仓库路径 |
 | `jira_get_project_path` | 查询项目的本地路径 |
+
+## CLI 命令
+
+```bash
+jira-dev status    # 查看当前认证状态、Token 状态和项目映射
+jira-dev doctor    # 执行环境与配置健康检查
+jira-dev upgrade   # 从 npm 升级 jira-dev-mcp
+jira-dev setup     # 向支持的 MCP 客户端注册 jira-dev
+```
 
 ## 标准使用流程
 

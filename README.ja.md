@@ -62,7 +62,8 @@ security add-generic-password -a "$USER" -s "jira-dev-mcp:JIRA_TOKEN" -w "your-t
 jira-dev setup
 ```
 
-`~/.claude.json`（Claude Code）と `~/.opencode/config.json`（OpenCode）に自動で書き込まれます。
+`~/.claude.json`（Claude Code）と `~/.opencode/config.json`（OpenCode）を自動で作成または更新します。
+既存の設定ファイルが不正な JSON の場合、`jira-dev setup` は黙ってスキップせず明示的にエラーを返します。
 
 ### 手動設定 — Claude Code（`~/.claude.json`）
 
@@ -101,6 +102,15 @@ jira-dev setup
 | `jira_add_comment` | コメントを投稿、クリッカブルな URL を返却 |
 | `jira_set_project_path` | Jira プロジェクトとローカルパスをマッピング |
 | `jira_get_project_path` | プロジェクトのローカルパスを取得 |
+
+## CLI コマンド
+
+```bash
+jira-dev status    # 現在の認証状態、トークン状態、プロジェクトマッピングを表示
+jira-dev doctor    # 環境と設定のヘルスチェックを実行
+jira-dev upgrade   # npm から jira-dev-mcp を更新
+jira-dev setup     # 対応する MCP クライアントへ jira-dev を登録
+```
 
 ## 標準的な使用フロー
 

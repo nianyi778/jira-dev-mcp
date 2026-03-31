@@ -62,7 +62,8 @@ security add-generic-password -a "$USER" -s "jira-dev-mcp:JIRA_TOKEN" -w "your-t
 jira-dev setup
 ```
 
-This writes to `~/.claude.json` (Claude Code) and `~/.opencode/config.json` (OpenCode) automatically.
+This creates or updates `~/.claude.json` (Claude Code) and `~/.opencode/config.json` (OpenCode) automatically.
+If an existing config file contains invalid JSON, `jira-dev setup` now fails with an explicit error instead of silently skipping it.
 
 ### Manual — Claude Code (`~/.claude.json`)
 
@@ -118,6 +119,15 @@ This writes to `~/.claude.json` (Claude Code) and `~/.opencode/config.json` (Ope
 | `jira_add_comment` | Post a comment; returns clickable URL |
 | `jira_set_project_path` | Map a Jira project to a local repo path |
 | `jira_get_project_path` | Get the local path for a project |
+
+## CLI Commands
+
+```bash
+jira-dev status    # Show current auth mode, token state, and mapped projects
+jira-dev doctor    # Run environment and config health checks
+jira-dev upgrade   # Upgrade jira-dev-mcp from npm
+jira-dev setup     # Register jira-dev into supported MCP clients
+```
 
 ## Development Workflow
 

@@ -31,36 +31,58 @@ export function isTextMimeType(mimeType: string): boolean {
 const RETRYABLE_STATUSES = new Set([429, 503]);
 const MAX_RETRIES = 2;
 
-export async function jiraRequest<T>(config: ResolvedConfig, path: string, init?: RequestInit): Promise<T> {
+export async function fetchWithRetry(
+  url: string,
+  init?: RequestInit,
+  options?: { timeoutMs?: number; requestLabel?: string },
+): Promise<Response> {
   let lastError: Error | null = null;
+  const timeoutMs = options?.timeoutMs ?? 30_000;
+  const requestLabel = options?.requestLabel ?? 'Request';
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (attempt > 0) {
-      // Exponential backoff: 1s, 2s
       await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt - 1) * 1000));
     }
 
-    const response = await fetch(`${config.jira.baseUrl}${path}`, {
-      ...init,
-      signal: AbortSignal.timeout(30000),
-      headers: {
-        Authorization: buildAuthHeader(config),
-        Accept: 'application/json',
-        ...(init?.headers || {}),
-      },
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      continue;
+    }
 
     if (RETRYABLE_STATUSES.has(response.status)) {
-      lastError = new Error(`Jira API error ${response.status}: ${sanitizeErrorBody(await response.text())}`);
+      lastError = new Error(`${requestLabel} error ${response.status}: ${sanitizeErrorBody(await response.text())}`);
       continue;
     }
 
     if (!response.ok) {
-      throw new Error(`Jira API error ${response.status}: ${sanitizeErrorBody(await response.text())}`);
+      throw new Error(`${requestLabel} error ${response.status}: ${sanitizeErrorBody(await response.text())}`);
     }
 
-    return response.json() as Promise<T>;
+    return response;
   }
 
-  throw lastError ?? new Error('Jira request failed after retries');
+  throw lastError ?? new Error(`${requestLabel} failed after retries`);
+}
+
+export async function jiraRequest<T>(config: ResolvedConfig, path: string, init?: RequestInit): Promise<T> {
+  const response = await fetchWithRetry(`${config.jira.baseUrl}${path}`, {
+    ...init,
+    headers: {
+      Authorization: buildAuthHeader(config),
+      Accept: 'application/json',
+      ...(init?.headers || {}),
+    },
+  }, {
+    timeoutMs: 30_000,
+    requestLabel: 'Jira API',
+  });
+
+  return response.json() as Promise<T>;
 }

@@ -4,6 +4,7 @@ import { parseArgs } from 'node:util';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
+import { registerDefaultClients } from './client-setup.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -76,66 +77,27 @@ Subcommands:
 `,
 };
 
-async function cmdSetup(): Promise<void> {
-  const { readFile, writeFile } = await import('node:fs/promises');
-  const { homedir } = await import('node:os');
-  const { resolve } = await import('node:path');
-
+export async function cmdSetup(): Promise<void> {
   const entry = { command: 'jira-dev', args: ['server'] };
-  let registered = 0;
+  const result = await registerDefaultClients('jira', entry);
 
-  // Claude Code — ~/.claude.json
-  const claudeJsonPath = resolve(homedir(), '.claude.json');
-  try {
-    const raw = await readFile(claudeJsonPath, 'utf8');
-    const data = JSON.parse(raw) as Record<string, unknown>;
-    if (typeof data.mcpServers === 'object' && data.mcpServers !== null) {
-      const servers = data.mcpServers as Record<string, unknown>;
-      if (!servers['jira']) {
-        servers['jira'] = entry;
-        await writeFile(claudeJsonPath, JSON.stringify(data, null, 2));
-        console.log(`✓ Registered in Claude Code  (${claudeJsonPath})`);
-        registered++;
-      } else {
-        console.log(`✓ Already registered in Claude Code`);
-        registered++;
-      }
+  for (const client of result.registered) {
+    console.log(`✓ Registered in ${client}`);
+  }
+  for (const client of result.alreadyRegistered) {
+    console.log(`✓ Already registered in ${client}`);
+  }
+  if (result.errors.length > 0) {
+    for (const error of result.errors) {
+      console.error(`✗ ${error}`);
     }
-  } catch {
-    // .claude.json not found or not parseable — skip silently
+    process.exit(1);
   }
 
-  // OpenCode — ~/.opencode/config.json
-  const opencodeJsonPath = resolve(homedir(), '.opencode', 'config.json');
-  try {
-    const raw = await readFile(opencodeJsonPath, 'utf8');
-    const data = JSON.parse(raw) as Record<string, unknown>;
-    if (typeof data.mcpServers === 'object' && data.mcpServers !== null) {
-      const servers = data.mcpServers as Record<string, unknown>;
-      if (!servers['jira']) {
-        servers['jira'] = entry;
-        await writeFile(opencodeJsonPath, JSON.stringify(data, null, 2));
-        console.log(`✓ Registered in OpenCode  (${opencodeJsonPath})`);
-        registered++;
-      } else {
-        console.log(`✓ Already registered in OpenCode`);
-        registered++;
-      }
-    }
-  } catch {
-    // not installed — skip
-  }
-
-  if (registered === 0) {
-    console.log('No supported MCP clients found (Claude Code, OpenCode).');
-    console.log('\nAdd manually to your MCP client config:');
-    console.log(JSON.stringify({ mcpServers: { jira: entry } }, null, 2));
-  } else {
-    console.log('\nRestart your MCP client to load the server.');
-  }
+  console.log('\nRestart your MCP client to load the server.');
 }
 
-async function cmdUpgrade(): Promise<void> {
+export async function cmdUpgrade(): Promise<void> {
   const { execFile } = await import('node:child_process');
   const { promisify } = await import('node:util');
   const exec = promisify(execFile);
@@ -179,7 +141,7 @@ async function cmdUpgrade(): Promise<void> {
   }
 }
 
-async function cmdDoctor(): Promise<void> {
+export async function cmdDoctor(): Promise<void> {
   let allOk = true;
   const ok = (msg: string) => console.log(`  ✓ ${msg}`);
   const fail = (msg: string) => { console.log(`  ✗ ${msg}`); allOk = false; };
@@ -252,7 +214,7 @@ async function cmdDoctor(): Promise<void> {
   }
 }
 
-async function cmdStatus(): Promise<void> {
+export async function cmdStatus(): Promise<void> {
   const { loadUserConfig, CONFIG_PATH } = await import('./config.js');
   const config = await loadUserConfig();
 
@@ -290,7 +252,7 @@ async function cmdStatus(): Promise<void> {
   }
 }
 
-async function cmdConfigSetPath(args: string[]): Promise<void> {
+export async function cmdConfigSetPath(args: string[]): Promise<void> {
   const [projectKey, localPath] = args;
   if (!projectKey || !localPath) {
     console.error('Usage: jira-dev config set-path <PROJECT_KEY> <LOCAL_PATH>');
@@ -302,7 +264,7 @@ async function cmdConfigSetPath(args: string[]): Promise<void> {
   console.log(`Saved to ${CONFIG_PATH}`);
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
     args: process.argv.slice(2),
     options: {
@@ -371,7 +333,9 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err: unknown) => {
-  console.error(err instanceof Error ? err.message : String(err));
-  process.exit(1);
-});
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((err: unknown) => {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  });
+}
