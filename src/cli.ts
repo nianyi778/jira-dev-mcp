@@ -28,6 +28,7 @@ Commands:
   login               Authenticate via OAuth 2.0 browser flow
   status              Show current authentication and config status
   doctor              Run health checks (Node version, Python, config)
+  upgrade             Upgrade jira-dev-mcp to the latest version
   config set-path     Map a Jira project key to a local repo path
 
 Options:
@@ -39,6 +40,7 @@ Examples:
   jira-dev login
   jira-dev status
   jira-dev doctor
+  jira-dev upgrade
   jira-dev config set-path AT /path/to/your/repo
 `;
 
@@ -71,6 +73,50 @@ Subcommands:
   set-path <PROJECT_KEY> <LOCAL_PATH>   Map a Jira project to a local directory
 `,
 };
+
+async function cmdUpgrade(): Promise<void> {
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const exec = promisify(execFile);
+
+  // Check latest version on npm
+  console.log('Checking latest version...');
+  let latest: string;
+  try {
+    const { stdout } = await exec('npm', ['view', 'jira-dev-mcp', 'version', '--registry', 'https://registry.npmjs.org']);
+    latest = stdout.trim();
+  } catch {
+    console.error('Failed to fetch latest version from npm. Check your network.');
+    process.exit(1);
+  }
+
+  const current = await getVersion();
+  if (current === latest) {
+    console.log(`Already up to date. (${current})`);
+    return;
+  }
+
+  console.log(`Upgrading ${current} → ${latest} ...`);
+  try {
+    const { spawn } = await import('node:child_process');
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn('npm', ['install', '-g', `jira-dev-mcp@${latest}`], {
+        stdio: 'inherit',
+        shell: process.platform === 'win32',
+      });
+      child.on('close', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`npm install exited with code ${code}`));
+      });
+    });
+    console.log(`\nUpgraded to jira-dev-mcp@${latest}`);
+    console.log('Run: jira-dev --version  to confirm');
+  } catch (err) {
+    console.error(`Upgrade failed: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(`Try manually: npm install -g jira-dev-mcp@latest`);
+    process.exit(1);
+  }
+}
 
 async function cmdDoctor(): Promise<void> {
   let allOk = true;
@@ -237,6 +283,10 @@ async function main(): Promise<void> {
     }
     case 'doctor': {
       await cmdDoctor();
+      break;
+    }
+    case 'upgrade': {
+      await cmdUpgrade();
       break;
     }
     case 'config': {
