@@ -398,7 +398,7 @@ describe('jira-client integration', () => {
     expect(result.posted).toBe(false);
     expect(result.requiresConfirmation).toBe(true);
     expect(result.preview.body).toBe('Looks good to me');
-    expect(result.reminder).toContain('可配置为自动发送');
+    expect(result.reminder).toContain('手動確認モード');
     expect(result.confirmationToken).toBeTruthy();
   });
 

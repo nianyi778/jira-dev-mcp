@@ -4,7 +4,8 @@ import { randomUUID } from 'node:crypto';
 
 const DEFAULT_REMINDER_CONTEXT = 'default';
 const CONFIRMATION_TTL_MS = 10 * 60 * 1000;
-const remindedContexts = new Set<string>();
+const REMINDED_CONTEXTS_MAX = 500;
+const remindedContexts = new Map<string, number>();
 
 // In-process store for pending confirmation tokens.
 // Intentionally in-memory: tokens expire after CONFIRMATION_TTL_MS (10 min) and are
@@ -32,6 +33,15 @@ function evictExpiredConfirmations(): void {
   }
 }
 
+function evictLruRemindedContexts(): void {
+  if (remindedContexts.size <= REMINDED_CONTEXTS_MAX) return;
+  const sorted = [...remindedContexts.entries()].sort((a, b) => a[1] - b[1]);
+  const toRemove = sorted.slice(0, remindedContexts.size - REMINDED_CONTEXTS_MAX);
+  for (const [key] of toRemove) {
+    remindedContexts.delete(key);
+  }
+}
+
 function createCommentPreview(
   input: AddCommentInput | EditCommentInput,
   contextKey?: string,
@@ -50,15 +60,13 @@ function createCommentPreview(
     expiresAt: Date.now() + CONFIRMATION_TTL_MS,
   });
 
-  // When contextKey is undefined (no sessionId from transport), always show the reminder —
-  // we cannot track per-session state without an identifier.
   const hasSession = Boolean(contextKey);
   const reminder = !hasSession || !remindedContexts.has(resolvedContextKey)
-    ? '当前为手动确认模式。发送评论前我会先列出拟发送内容并等待确认。这个行为可配置为自动发送。'
+    ? '手動確認モードです。コメント送信前にプレビューを表示し、確認を待ちます。auto モードに変更可能です。'
     : undefined;
   if (hasSession) {
-    if (remindedContexts.size > 500) { remindedContexts.clear(); }
-    remindedContexts.add(resolvedContextKey);
+    evictLruRemindedContexts();
+    remindedContexts.set(resolvedContextKey, Date.now());
   }
 
   return {
@@ -84,12 +92,54 @@ function buildCommentUrl(config: ResolvedConfig, issueKey: string, commentId: st
   return browseBase ? `${browseBase}/browse/${issueKey}?focusedCommentId=${commentId}` : '';
 }
 
+import type { AdfNode } from './jira-adf.js';
+
+function textToParagraph(text: string): AdfNode {
+  return { type: 'paragraph', content: [{ type: 'text', text }] };
+}
+
+function textToCodeBlock(code: string, language?: string): AdfNode {
+  const node: AdfNode = { type: 'codeBlock', content: [{ type: 'text', text: code }] };
+  if (language) node.attrs = { language };
+  return node;
+}
+
+function parseTextToAdfContent(text: string): AdfNode[] {
+  const nodes: AdfNode[] = [];
+  const codeBlockPattern = /^```(\w*)\n([\s\S]*?)^```$/gm;
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(codeBlockPattern)) {
+    const before = text.slice(lastIndex, match.index);
+    if (before.trim()) {
+      for (const para of before.split(/\n{2,}/)) {
+        const trimmed = para.trim();
+        if (trimmed) nodes.push(textToParagraph(trimmed));
+      }
+    }
+    const lang = match[1] || undefined;
+    const code = match[2].replace(/\n$/, '');
+    nodes.push(textToCodeBlock(code, lang));
+    lastIndex = match.index! + match[0].length;
+  }
+
+  const remaining = text.slice(lastIndex);
+  if (remaining.trim()) {
+    for (const para of remaining.split(/\n{2,}/)) {
+      const trimmed = para.trim();
+      if (trimmed) nodes.push(textToParagraph(trimmed));
+    }
+  }
+
+  return nodes.length > 0 ? nodes : [textToParagraph(text)];
+}
+
 function buildAdfBody(text: string) {
   return {
     body: {
       type: 'doc',
       version: 1,
-      content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+      content: parseTextToAdfContent(text),
     },
   };
 }
