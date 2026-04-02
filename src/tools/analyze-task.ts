@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import { ensureJiraCredentials, getProjectPath, loadResolvedConfig } from '../config.js';
+import { ensureJiraCredentials, getProjectPath, inferProjectKey, loadResolvedConfig } from '../config.js';
 import { readIssue } from '../jira-client.js';
 import { formatAnalysisWorkflow } from '../format-analysis.js';
 
 export const analyzeTaskSchema = z.object({
   input: z.string().describe('Jira issue key (e.g. AT-123) or full browse URL (e.g. https://xxx.atlassian.net/browse/AT-123)'),
-  auto_comment: z.boolean().optional().describe('Automatically post the completed analysis as a comment without asking for confirmation (default true)'),
+  auto_comment: z.boolean().optional().describe('Automatically post the completed analysis as a comment without asking for confirmation (default false, consistent with commentMode default of manual)'),
   response_format: z.enum(['json', 'markdown']).optional().describe('Output format (default markdown)'),
 });
 
@@ -29,18 +29,15 @@ export function parseIssueKey(input: string): string {
   );
 }
 
-function inferProjectKey(key: string): string {
-  const match = key.match(/^([A-Z][A-Z0-9]+)-\d+$/);
-  return match ? match[1] : key;
-}
-
 export async function handleAnalyzeTask(args: unknown) {
   const { input: rawInput, auto_comment: autoCommentRaw, response_format } = analyzeTaskSchema.parse(args);
   const trimmedInput = rawInput.trim();
   if (!trimmedInput) {
     throw new Error('jira_analyze_task requires input (issue key or URL)');
   }
-  const autoComment = autoCommentRaw !== false && autoCommentRaw !== null;
+  // Default false: consistent with commentMode default of 'manual'.
+  // Pass auto_comment=true only when the caller explicitly wants unattended posting.
+  const autoComment = autoCommentRaw === true;
   const responseFormat = response_format ?? 'markdown';
 
   const key = parseIssueKey(trimmedInput);
@@ -58,16 +55,15 @@ export async function handleAnalyzeTask(args: unknown) {
 
   const localPath = await getProjectPath(projectKey);
 
-  // Match all three type-specific template headers to avoid false positives
-  // from normal comments that happen to reference the issue key like 【AT-123】
-  const analysisMarkers = [
-    `【${key}】バグ修正分析`,
-    `【${key}】機能実装分析`,
-    `【${key}】タスク実装分析`,
-  ];
+  // Detect an existing analysis comment: 【KEY】 must appear at the start of a line,
+  // followed immediately by a non-whitespace character (language-agnostic header).
+  // Using ^ with multiline flag avoids false-positives on normal inline references like
+  // "参考【AT-303】の方針で進めます" where the marker appears mid-sentence.
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const analysisPattern = new RegExp(`^【${escapedKey}】\\S`, 'm');
   const existingComment = issue.comments.items.find(
-    (c) => analysisMarkers.some((m) => c.bodyPlainText.includes(m))
-  ) || null;
+    (c) => analysisPattern.test(c.bodyPlainText)
+  ) ?? null;
 
   const payload = {
     issue,

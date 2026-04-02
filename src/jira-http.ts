@@ -84,5 +84,10 @@ export async function jiraRequest<T>(config: ResolvedConfig, path: string, init?
     requestLabel: 'Jira API',
   });
 
-  return response.json() as Promise<T>;
+  const text = await response.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`Jira API returned non-JSON response for ${path}: ${sanitizeErrorBody(text)}`);
+  }
 }

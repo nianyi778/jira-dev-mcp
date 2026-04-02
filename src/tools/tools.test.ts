@@ -12,12 +12,16 @@ const mockAddComment = vi.fn();
 const mockAddCommentWithConfirmation = vi.fn();
 const mockEditCommentWithConfirmation = vi.fn();
 
-vi.mock('../config.js', () => ({
-  loadResolvedConfig: mockLoadResolvedConfig,
-  ensureJiraCredentials: mockEnsureJiraCredentials,
-  getProjectPath: mockGetProjectPath,
-  setProjectPath: mockSetProjectPath,
-}));
+vi.mock('../config.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../config.js')>();
+  return {
+    ...actual,
+    loadResolvedConfig: mockLoadResolvedConfig,
+    ensureJiraCredentials: mockEnsureJiraCredentials,
+    getProjectPath: mockGetProjectPath,
+    setProjectPath: mockSetProjectPath,
+  };
+});
 
 vi.mock('../jira-client.js', () => ({
   searchIssues: mockSearchIssues,

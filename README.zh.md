@@ -105,6 +105,7 @@ jira-dev setup
 | `jira_edit_comment` | 修改已有评论，支持预览后确认 |
 | `jira_set_project_path` | 映射 Jira 项目到本地仓库路径 |
 | `jira_get_project_path` | 查询项目的本地路径 |
+| `jira_analyze_task` | 完整调查工作流：读取 Issue + 评论 + 附件，按类型（Bug/Story/Task）选择分析模板，引导完成探查 → 计划 → 实现 → 发表评论的全流程 |
 
 ## CLI 命令
 

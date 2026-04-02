@@ -5,6 +5,11 @@ import { randomUUID } from 'node:crypto';
 const DEFAULT_REMINDER_CONTEXT = 'default';
 const CONFIRMATION_TTL_MS = 10 * 60 * 1000;
 const remindedContexts = new Set<string>();
+
+// In-process store for pending confirmation tokens.
+// Intentionally in-memory: tokens expire after CONFIRMATION_TTL_MS (10 min) and are
+// only meaningful within a single server session. If the server restarts, all pending
+// tokens are cleared and the user must request a new preview — this is expected behavior.
 const pendingCommentConfirmations = new Map<string, {
   action: 'add' | 'edit';
   key: string;
@@ -165,6 +170,7 @@ export async function addCommentWithConfirmation(
     const pending = pendingCommentConfirmations.get(input.confirmToken);
     if (!pending || pending.expiresAt < Date.now()) {
       pendingCommentConfirmations.delete(input.confirmToken);
+      // Token expired or server restarted — generate a fresh preview
       return createCommentPreview(input, contextKey, 'add');
     }
 
@@ -202,6 +208,7 @@ export async function editCommentWithConfirmation(
     const pending = pendingCommentConfirmations.get(input.confirmToken);
     if (!pending || pending.expiresAt < Date.now()) {
       pendingCommentConfirmations.delete(input.confirmToken);
+      // Token expired or server restarted — generate a fresh preview
       return createCommentPreview(input, contextKey, 'edit');
     }
 

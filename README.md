@@ -122,6 +122,7 @@ If an existing config file contains invalid JSON, `jira-dev setup` now fails wit
 | `jira_edit_comment` | Edit an existing comment; supports preview + confirm flow |
 | `jira_set_project_path` | Map a Jira project to a local repo path |
 | `jira_get_project_path` | Get the local path for a project |
+| `jira_analyze_task` | Full investigation workflow: reads issue + comments + attachments, selects type-aware template (Bug/Story/Task), and guides step-by-step through explore → plan → implement → post comment |
 
 ## CLI Commands
 

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ensureJiraCredentials, getProjectPath, loadResolvedConfig } from '../config.js';
+import { ensureJiraCredentials, getProjectPath, inferProjectKey, loadResolvedConfig } from '../config.js';
 import { formatIssueDetail } from '../format.js';
 import { readIssue } from '../jira-client.js';
 
@@ -12,14 +12,6 @@ export const readTaskSchema = z.object({
   changelogMaxResults: z.number().int().min(1).max(100).optional().describe('Max changelog entries (1-100, default 20)'),
   response_format: z.enum(['json', 'markdown']).optional().describe('Output format (default json)'),
 });
-
-function inferProjectKey(key: string): string {
-  const match = key.toUpperCase().match(/^([A-Z][A-Z0-9]+)-\d+$/);
-  if (!match) {
-    return key.toUpperCase();
-  }
-  return match[1];
-}
 
 export async function handleReadTask(args: unknown) {
   const { key: rawKey, includeComments, commentStartAt, commentMaxResults, changelogStartAt, changelogMaxResults, response_format } = readTaskSchema.parse(args);

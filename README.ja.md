@@ -105,6 +105,7 @@ jira-dev setup
 | `jira_edit_comment` | 既存コメントを編集。プレビュー確認フロー対応 |
 | `jira_set_project_path` | Jira プロジェクトとローカルパスをマッピング |
 | `jira_get_project_path` | プロジェクトのローカルパスを取得 |
+| `jira_analyze_task` | 完全な調査ワークフロー：Issue・コメント・添付ファイルを読み込み、タイプ別テンプレート（Bug/Story/Task）を選択し、探索→計画→実装→コメント投稿の SOP をガイド |
 
 ## CLI コマンド
 

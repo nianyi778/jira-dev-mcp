@@ -29,11 +29,15 @@ export function truncateText(text: string, maxBytes: number): { content: string;
   };
 }
 
+const PYTHON_PARSE_TIMEOUT_MS = 30_000;
+const PYTHON_PIP_TIMEOUT_MS = 120_000;
+
 async function installParserDependencies(): Promise<void> {
   if (parserDependenciesInstalled) { return; }
   const requirementsPath = new URL('../scripts/requirements.txt', import.meta.url);
   await execFileAsync('python3', ['-m', 'pip', 'install', '-r', fileURLToPath(requirementsPath)], {
     maxBuffer: 20 * 1024 * 1024,
+    timeout: PYTHON_PIP_TIMEOUT_MS,
   });
   parserDependenciesInstalled = true;
 }
@@ -53,6 +57,7 @@ async function parseWithPythonOnce(filename: string, input: Buffer): Promise<{
     const scriptPath = new URL('../scripts/parse_attachment.py', import.meta.url);
     const { stdout } = await execFileAsync('python3', [fileURLToPath(scriptPath), tempPath], {
       maxBuffer: 2 * 1024 * 1024,
+      timeout: PYTHON_PARSE_TIMEOUT_MS,
     });
     const parsed = JSON.parse(stdout) as {
       ok: boolean; format?: string; summary?: string; content?: string; truncated?: boolean; error?: string;

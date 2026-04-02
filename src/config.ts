@@ -222,8 +222,15 @@ export async function setProjectPath(projectKey: string, localPath: string): Pro
 }
 
 export async function getProjectPath(projectKey: string): Promise<string | null> {
+  const normalizedKey = projectKey.trim().toUpperCase();
+  // Prefer in-memory cache (ResolvedConfig) to avoid an extra disk read per tool call.
+  // Falls back to direct file read only when the cache is cold (e.g. first call after startup).
+  const now = Date.now();
+  if (_cachedConfig && _cachedConfig.expiresAt > now) {
+    return _cachedConfig.value.projects[normalizedKey] ?? null;
+  }
   const config = await loadUserConfig();
-  return config.projects?.[projectKey.trim().toUpperCase()] || null;
+  return config.projects?.[normalizedKey] ?? null;
 }
 
 export async function setCommentMode(mode: 'manual' | 'auto'): Promise<{ commentMode: 'manual' | 'auto' }> {
@@ -271,4 +278,10 @@ export async function ensureConfigPermissions(): Promise<void> {
   if (process.platform !== 'win32') {
     await access(dirname(CONFIG_PATH));
   }
+}
+
+/** Extract the project key from an issue key (e.g. "AT-123" → "AT"). */
+export function inferProjectKey(issueKey: string): string {
+  const match = issueKey.match(/^([A-Z][A-Z0-9]+)-\d+$/);
+  return match ? match[1] : issueKey;
 }
