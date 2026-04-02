@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { createServer } from 'node:http';
+import { createServer, type Server } from 'node:http';
 import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { CONFIG_PATH, loadUserConfig, saveUserConfig } from './config.js';
@@ -8,8 +8,8 @@ import { BUILTIN_CLIENT_ID, BUILTIN_CLIENT_SECRET } from './defaults.js';
 import type { OAuthTokens } from './types.js';
 
 const SCOPES = ['read:jira-work', 'write:jira-work', 'read:jira-user', 'offline_access'];
-const CALLBACK_PORT = 3737;
-const REDIRECT_URI = `http://localhost:${CALLBACK_PORT}/callback`;
+const PREFERRED_PORTS = [3737, 3738, 3739, 3740, 0] as const;
+const AUTH_TIMEOUT_MS = 5 * 60 * 1000;
 
 const SUCCESS_HTML = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Jira Login</title><style>
@@ -38,10 +38,30 @@ function openBrowser(url: string): void {
   }
 }
 
-async function waitForCallback(expectedState: string): Promise<string> {
+async function startCallbackServer(): Promise<{ server: Server; port: number }> {
+  for (const port of PREFERRED_PORTS) {
+    const server = createServer(() => {});
+    const boundPort = await new Promise<number>((resolve, reject) => {
+      server.once('error', (err: NodeJS.ErrnoException) => {
+        if (err.code === 'EADDRINUSE') resolve(-1);
+        else reject(err);
+      });
+      server.listen(port, '127.0.0.1', () => {
+        const addr = server.address();
+        resolve(typeof addr === 'object' && addr ? addr.port : port);
+      });
+    });
+    if (boundPort >= 0) return { server, port: boundPort };
+    server.close();
+  }
+  throw new Error('Could not bind any port for OAuth callback (tried 3737-3740 and OS-assigned).');
+}
+
+function waitForAuthCode(server: Server, port: number, expectedState: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const server = createServer((req, res) => {
-      const url = new URL(req.url!, `http://localhost:${CALLBACK_PORT}`);
+    server.removeAllListeners('request');
+    server.on('request', (req, res) => {
+      const url = new URL(req.url!, `http://localhost:${port}`);
       if (url.pathname !== '/callback') {
         res.writeHead(404).end();
         return;
@@ -70,23 +90,14 @@ async function waitForCallback(expectedState: string): Promise<string> {
       resolve(code);
     });
 
-    server.listen(CALLBACK_PORT, '127.0.0.1');
-    server.on('error', (err: NodeJS.ErrnoException) => {
-      if (err.code === 'EADDRINUSE') {
-        reject(new Error(`Port ${CALLBACK_PORT} is in use. Stop the process using it and try again.`));
-      } else {
-        reject(err);
-      }
-    });
-
     const timeoutId = setTimeout(() => {
       server.close();
       reject(new Error('Authorization timed out (5 minutes). Please try again.'));
-    }, 5 * 60 * 1000);
+    }, AUTH_TIMEOUT_MS);
   });
 }
 
-async function exchangeCode(clientId: string, clientSecret: string, code: string): Promise<{
+async function exchangeCode(clientId: string, clientSecret: string, code: string, redirectUri: string): Promise<{
   access_token: string;
   refresh_token: string;
   expires_in: number;
@@ -100,7 +111,7 @@ async function exchangeCode(clientId: string, clientSecret: string, code: string
       client_id: clientId,
       client_secret: clientSecret,
       code,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: redirectUri,
     }),
   });
 
@@ -130,18 +141,18 @@ async function pickSite(resources: Array<{ id: string; name: string; url: string
     return resources[0];
   }
 
-  // Multiple sites: print list and ask user to pick
   console.log('\nMultiple Jira sites found:');
-  resources.forEach((r, i) => console.log(`  [${i + 1}] ${r.name}  (${r.url})`));
+  for (let i = 0; i < resources.length; i++) {
+    console.log(`  [${i + 1}] ${resources[i].name}  (${resources[i].url})`);
+  }
   process.stdout.write('\nEnter number [1]: ');
 
   return new Promise((resolve, reject) => {
-    let input = '';
     process.stdin.setEncoding('utf8');
     process.stdin.resume();
     process.stdin.once('data', (chunk) => {
       process.stdin.pause();
-      input = String(chunk).trim();
+      const input = String(chunk).trim();
       const index = input === '' ? 0 : parseInt(input, 10) - 1;
       if (isNaN(index) || index < 0 || index >= resources.length) {
         reject(new Error(`Invalid selection: ${input}`));
@@ -153,43 +164,43 @@ async function pickSite(resources: Array<{ id: string; name: string; url: string
 }
 
 async function main() {
-  // User-supplied env vars take priority; fall back to the built-in app credentials
   const clientId = process.env.JIRA_CLIENT_ID || BUILTIN_CLIENT_ID;
   const clientSecret = process.env.JIRA_CLIENT_SECRET || BUILTIN_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
     console.error('Error: OAuth credentials not configured.\n');
-    console.error('Option 1 (use your own OAuth app):');
+    console.error('Set environment variables before running login:\n');
+    console.error('  export JIRA_CLIENT_ID=<your-oauth-client-id>');
+    console.error('  export JIRA_CLIENT_SECRET=<your-oauth-client-secret>\n');
+    console.error('To create an OAuth app:');
     console.error('  1. Go to https://developer.atlassian.com/console/myapps/');
     console.error('  2. Create → OAuth 2.0 integration');
-    console.error(`  3. Add callback URL: ${REDIRECT_URI}`);
+    console.error('  3. Add callback URL: http://localhost:3737/callback');
     console.error(`  4. Add scopes: ${SCOPES.join('  ')}`);
-    console.error('  5. Set env vars:');
-    console.error('       export JIRA_CLIENT_ID=<id>');
-    console.error('       export JIRA_CLIENT_SECRET=<secret>');
-    console.error('\nOption 2: contact the package maintainer to report this issue.');
     process.exit(1);
   }
 
+  const { server, port } = await startCallbackServer();
+  const redirectUri = `http://localhost:${port}/callback`;
   const state = randomBytes(16).toString('hex');
+
   const authUrl = new URL('https://auth.atlassian.com/authorize');
   authUrl.searchParams.set('audience', 'api.atlassian.com');
   authUrl.searchParams.set('client_id', clientId);
   authUrl.searchParams.set('scope', SCOPES.join(' '));
-  authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
+  authUrl.searchParams.set('redirect_uri', redirectUri);
   authUrl.searchParams.set('state', state);
   authUrl.searchParams.set('response_type', 'code');
   authUrl.searchParams.set('prompt', 'consent');
 
   console.log('Opening browser for Jira authorization...');
   console.log(`\nIf the browser does not open, visit:\n  ${authUrl.toString()}\n`);
-
   openBrowser(authUrl.toString());
 
-  const code = await waitForCallback(state);
+  const code = await waitForAuthCode(server, port, state);
   console.log('Authorization code received. Exchanging for tokens...');
 
-  const tokens = await exchangeCode(clientId, clientSecret, code);
+  const tokens = await exchangeCode(clientId, clientSecret, code, redirectUri);
   console.log('Fetching accessible Jira sites...');
 
   const resources = await getAccessibleResources(tokens.access_token);
@@ -200,7 +211,6 @@ async function main() {
 
   const site = await pickSite(resources);
 
-  // Do not persist clientSecret — runtime value comes from defaults.ts or env var
   const oauth: OAuthTokens = {
     clientId,
     accessToken: tokens.access_token,
@@ -215,7 +225,6 @@ async function main() {
     ...config.jira,
     authMode: 'oauth',
     oauth,
-    // Clear legacy token fields to avoid confusion
     token: undefined,
     apiToken: undefined,
     email: undefined,
