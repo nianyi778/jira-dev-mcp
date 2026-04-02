@@ -1,4 +1,5 @@
 import type { ResolvedConfig } from './types.js';
+import { JiraApiError, JiraAuthError, JiraNetworkError } from './errors.js';
 
 export function buildAuthHeader(config: ResolvedConfig): string {
   if (config.jira.authMode === 'basic') {
@@ -30,6 +31,21 @@ export function isTextMimeType(mimeType: string): boolean {
 
 const RETRYABLE_STATUSES = new Set([429, 503]);
 const MAX_RETRIES = 2;
+const DEFAULT_BACKOFF_BASE_MS = 1000;
+
+function parseRetryAfterMs(response: Response): number | null {
+  const header = response.headers.get('retry-after');
+  if (!header) return null;
+  const seconds = Number(header);
+  if (!Number.isNaN(seconds) && seconds >= 0) {
+    return Math.min(seconds * 1000, 120_000);
+  }
+  const date = Date.parse(header);
+  if (!Number.isNaN(date)) {
+    return Math.min(Math.max(date - Date.now(), 0), 120_000);
+  }
+  return null;
+}
 
 export async function fetchWithRetry(
   url: string,
@@ -37,12 +53,15 @@ export async function fetchWithRetry(
   options?: { timeoutMs?: number; requestLabel?: string },
 ): Promise<Response> {
   let lastError: Error | null = null;
+  let retryAfterMs: number | null = null;
   const timeoutMs = options?.timeoutMs ?? 30_000;
   const requestLabel = options?.requestLabel ?? 'Request';
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (attempt > 0) {
-      await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt - 1) * 1000));
+      const delay = retryAfterMs ?? Math.pow(2, attempt - 1) * DEFAULT_BACKOFF_BASE_MS;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      retryAfterMs = null;
     }
 
     let response: Response;
@@ -52,17 +71,24 @@ export async function fetchWithRetry(
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
+      const cause = error instanceof Error ? error : new Error(String(error));
+      lastError = new JiraNetworkError(`${requestLabel} network error: ${cause.message}`, cause);
       continue;
     }
 
     if (RETRYABLE_STATUSES.has(response.status)) {
-      lastError = new Error(`${requestLabel} error ${response.status}: ${sanitizeErrorBody(await response.text())}`);
+      retryAfterMs = parseRetryAfterMs(response);
+      const body = sanitizeErrorBody(await response.text());
+      lastError = new JiraApiError(response.status, body, requestLabel);
       continue;
     }
 
     if (!response.ok) {
-      throw new Error(`${requestLabel} error ${response.status}: ${sanitizeErrorBody(await response.text())}`);
+      const body = sanitizeErrorBody(await response.text());
+      if (response.status === 401 || response.status === 403) {
+        throw new JiraAuthError(`${requestLabel} authentication failed (${response.status}): ${body}`);
+      }
+      throw new JiraApiError(response.status, body, requestLabel);
     }
 
     return response;
@@ -88,6 +114,6 @@ export async function jiraRequest<T>(config: ResolvedConfig, path: string, init?
   try {
     return JSON.parse(text) as T;
   } catch {
-    throw new Error(`Jira API returned non-JSON response for ${path}: ${sanitizeErrorBody(text)}`);
+    throw new JiraApiError(response.status, `Non-JSON response for ${path}: ${sanitizeErrorBody(text)}`, 'Jira API');
   }
 }

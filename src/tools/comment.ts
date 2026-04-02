@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ensureJiraCredentials, loadResolvedConfig } from '../config.js';
 import { addCommentWithConfirmation, editCommentWithConfirmation } from '../jira-client.js';
+import { JiraValidationError } from '../errors.js';
 import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
 import type { ServerNotification, ServerRequest } from '@modelcontextprotocol/sdk/types.js';
 
@@ -26,7 +27,7 @@ export async function handleAddComment(
   const body = rawBody.trim();
 
   if (!key || !body) {
-    throw new Error('jira_add_comment requires key and body');
+    throw new JiraValidationError('jira_add_comment requires key and body');
   }
 
   const config = await loadResolvedConfig();
@@ -45,7 +46,7 @@ export async function handleEditComment(
   const body = rawBody.trim();
 
   if (!key || !commentId || !body) {
-    throw new Error('jira_edit_comment requires key, commentId, and body');
+    throw new JiraValidationError('jira_edit_comment requires key, commentId, and body');
   }
 
   const config = await loadResolvedConfig();

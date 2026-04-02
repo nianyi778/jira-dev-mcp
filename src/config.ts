@@ -5,6 +5,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { OAuthTokens, ResolvedConfig, UserConfig } from './types.js';
 import { BUILTIN_CLIENT_SECRET } from './defaults.js';
+import { JiraAuthError } from './errors.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -217,6 +218,7 @@ export async function setProjectPath(projectKey: string, localPath: string): Pro
     [normalizedProjectKey]: normalizedPath,
   };
   await saveUserConfig(config);
+  clearConfigCache();
 
   return { projectKey: normalizedProjectKey, localPath: normalizedPath };
 }
@@ -260,13 +262,13 @@ export async function configFileExists(): Promise<boolean> {
 
 export function ensureJiraCredentials(config: ResolvedConfig): void {
   if (!config.jira.baseUrl || !config.jira.token) {
-    throw new Error(
+    throw new JiraAuthError(
       `Missing Jira credentials. Configure JIRA_BASE_URL and JIRA_TOKEN or update ${CONFIG_PATH}`
     );
   }
 
   if (config.jira.authMode === 'basic' && !config.jira.email) {
-    throw new Error(`Missing Jira email for basic auth. Configure JIRA_EMAIL or update ${CONFIG_PATH}`);
+    throw new JiraAuthError(`Missing Jira email for basic auth. Configure JIRA_EMAIL or update ${CONFIG_PATH}`);
   }
 }
 

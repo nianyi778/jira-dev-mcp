@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import { ensureJiraCredentials, getProjectPath, inferProjectKey, loadResolvedConfig } from '../config.js';
 import { readIssue } from '../jira-client.js';
+import { JiraValidationError } from '../errors.js';
 import { formatAnalysisWorkflow } from '../format-analysis.js';
 
 export const analyzeTaskSchema = z.object({
   input: z.string().describe('Jira issue key (e.g. AT-123) or full browse URL (e.g. https://xxx.atlassian.net/browse/AT-123)'),
   auto_comment: z.boolean().optional().describe('Automatically post the completed analysis as a comment without asking for confirmation (default false, consistent with commentMode default of manual)'),
+  comment_max_results: z.number().int().min(1).max(100).optional().describe('Max comments to fetch for prior-analysis check (1-100, default 50)'),
   response_format: z.enum(['json', 'markdown']).optional().describe('Output format (default markdown)'),
 });
 
@@ -24,16 +26,16 @@ export function parseIssueKey(input: string): string {
     return keyMatch[1].toUpperCase();
   }
 
-  throw new Error(
+  throw new JiraValidationError(
     `Cannot parse issue key from: "${input}". Accepted formats: "AT-123" or "https://xxx.atlassian.net/browse/AT-123"`
   );
 }
 
 export async function handleAnalyzeTask(args: unknown) {
-  const { input: rawInput, auto_comment: autoCommentRaw, response_format } = analyzeTaskSchema.parse(args);
+  const { input: rawInput, auto_comment: autoCommentRaw, comment_max_results, response_format } = analyzeTaskSchema.parse(args);
   const trimmedInput = rawInput.trim();
   if (!trimmedInput) {
-    throw new Error('jira_analyze_task requires input (issue key or URL)');
+    throw new JiraValidationError('jira_analyze_task requires input (issue key or URL)');
   }
   // Default false: consistent with commentMode default of 'manual'.
   // Pass auto_comment=true only when the caller explicitly wants unattended posting.
@@ -49,7 +51,7 @@ export async function handleAnalyzeTask(args: unknown) {
   const issue = await readIssue(config, {
     key,
     includeComments: true,
-    commentMaxResults: 50,
+    commentMaxResults: comment_max_results ?? 50,
     changelogMaxResults: 5,
   });
 

@@ -1,5 +1,6 @@
 import type { DownloadAttachmentInput, DownloadedAttachment, ResolvedConfig } from './types.js';
 import { buildAuthHeader, fetchWithRetry, isTextMimeType, matchesMimeType } from './jira-http.js';
+import { JiraValidationError } from './errors.js';
 import {
   parseAttachmentWithPython,
   truncateText,
@@ -11,12 +12,12 @@ import { getIssue } from './jira-issue-read.js';
 export async function downloadAttachment(config: ResolvedConfig, input: DownloadAttachmentInput): Promise<DownloadedAttachment> {
   const issue = await getIssue(config, input.key, { expandChangelog: false });
   const attachment = (issue.fields.attachment || []).find((item) => item.filename === input.filename);
-  if (!attachment) { throw new Error(`Attachment not found on ${input.key}: ${input.filename}`); }
+  if (!attachment) { throw new JiraValidationError(`Attachment not found on ${input.key}: ${input.filename}`); }
   if (attachment.size > config.security.maxAttachmentSizeBytes) {
-    throw new Error(`Attachment exceeds max size limit of ${config.security.maxAttachmentSizeBytes} bytes`);
+    throw new JiraValidationError(`Attachment exceeds max size limit of ${config.security.maxAttachmentSizeBytes} bytes`);
   }
   if (!matchesMimeType(attachment.mimeType, config.security.allowedMimeTypes)) {
-    throw new Error(`Attachment MIME type not allowed: ${attachment.mimeType}`);
+    throw new JiraValidationError(`Attachment MIME type not allowed: ${attachment.mimeType}`);
   }
 
   const response = await fetchWithRetry(attachment.content, {

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ensureJiraCredentials, getProjectPath, inferProjectKey, loadResolvedConfig } from '../config.js';
 import { formatIssueDetail } from '../format.js';
 import { readIssue } from '../jira-client.js';
+import { JiraValidationError } from '../errors.js';
 
 export const readTaskSchema = z.object({
   key: z.string().describe('Jira issue key (e.g. AT-123)'),
@@ -17,7 +18,7 @@ export async function handleReadTask(args: unknown) {
   const { key: rawKey, includeComments, commentStartAt, commentMaxResults, changelogStartAt, changelogMaxResults, response_format } = readTaskSchema.parse(args);
   const key = rawKey.trim().toUpperCase();
   if (!key) {
-    throw new Error('jira_read_task requires key');
+    throw new JiraValidationError('jira_read_task requires key');
   }
 
   const config = await loadResolvedConfig();

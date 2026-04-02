@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ensureJiraCredentials, loadResolvedConfig } from '../config.js';
 import { formatIssueList } from '../format.js';
 import { searchIssues } from '../jira-client.js';
+import { JiraValidationError } from '../errors.js';
 
 export const searchIssuesSchema = z.object({
   query: z.string().describe('Search query (keywords or JQL)'),
@@ -13,7 +14,7 @@ export const searchIssuesSchema = z.object({
 export async function handleJiraSearch(args: unknown) {
   const { query, maxResults, startAt, response_format } = searchIssuesSchema.parse(args);
   if (!query.trim()) {
-    throw new Error('jira_search_issues requires query');
+    throw new JiraValidationError('jira_search_issues requires query');
   }
 
   const config = await loadResolvedConfig();
