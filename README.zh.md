@@ -19,7 +19,11 @@
 - 支持在 Issue 上发表评论，返回可直接跳转的评论 URL
 - 评论默认手动确认后发送，也可配置为自动发送
 - 支持修改已有评论，并复用相同的确认流程
-- 遇到限流/服务异常（429/503）自动重试
+- 遇到限流/服务异常（429/503）自动重试，支持 Retry-After 头
+- 完整 ADF 解析：代码块、表格、@提及、链接、面板等
+- 评论支持多段落和围栏代码块
+- 类型化错误体系，便于程序化错误处理
+- OAuth 回调端口自动降级（默认端口占用时自动尝试其他端口）
 - 支持读写 Jira 权限
 
 ## 安装
@@ -168,6 +172,7 @@ CSV / XLSX / XLS / PDF 解析为结构化文本；图片以 base64 返回。
 - OAuth Token 存储在 `~/.jira-dev/config.json`，文件权限为 `600`
 - API Token 优先使用环境变量或 macOS Keychain，避免明文写入配置文件
 - 下载附件前强制校验文件大小和 MIME 类型白名单
+- OAuth 客户端凭据在编译时注入，不会提交到源码中
 - 敏感信息不写入任何日志
 
 ## 本地开发
@@ -176,6 +181,7 @@ CSV / XLSX / XLS / PDF 解析为结构化文本；图片以 base64 返回。
 git clone https://github.com/nianyi778/jira-dev-mcp.git
 cd jira-dev-mcp
 npm install
+npm run generate-defaults   # 首次构建前必须执行（从环境变量读取或使用空占位符）
 npm test
 npm run build
 ```

@@ -49,6 +49,6 @@ Use `gh pr comment <number> --body "..."` to post.
 This is a local MCP server. Changes must:
 1. Pass `npx tsc --noEmit` (zero errors)
 2. Pass `npm test` (all tests green)
-3. Not break the 7 registered MCP tools: `jira_search_issues`, `jira_read_task`,
+3. Not break the 9 registered MCP tools: `jira_search_issues`, `jira_read_task`,
    `jira_download_attachment`, `jira_my_tasks`, `jira_set_project_path`, `jira_get_project_path`,
-   `jira_add_comment`
+   `jira_add_comment`, `jira_edit_comment`, `jira_analyze_task`

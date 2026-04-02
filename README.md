@@ -19,7 +19,11 @@ A local MCP server for Jira Cloud-driven development. Connects Claude Code, Open
 - Post comments on Jira issues with clickable URL response
 - Manual confirmation by default before posting comments, with optional auto-send mode
 - Edit existing comments with the same confirmation flow
-- Auto-retry on transient API errors (429/503)
+- Auto-retry on transient API errors (429/503) with Retry-After header support
+- Rich ADF parsing: code blocks, tables, mentions, links, panels, and more
+- Multi-paragraph and fenced code block support in posted comments
+- Typed error hierarchy for programmatic error handling
+- OAuth callback port auto-fallback when default port is busy
 - Read and write Jira access
 
 ## Install
@@ -203,6 +207,7 @@ python3 -m pip install -r $(npm root -g)/jira-dev-mcp/scripts/requirements.txt
 - OAuth tokens stored at `~/.jira-dev/config.json` with `600` permissions
 - API tokens: prefer env vars or macOS Keychain over config file
 - Attachment size and MIME type allowlist enforced before download
+- OAuth client credentials injected at build time — never committed to source
 - Secrets are never written to logs
 
 ## Local Development
@@ -211,6 +216,7 @@ python3 -m pip install -r $(npm root -g)/jira-dev-mcp/scripts/requirements.txt
 git clone https://github.com/nianyi778/jira-dev-mcp.git
 cd jira-dev-mcp
 npm install
+npm run generate-defaults   # required before first build (uses env vars or empty placeholders)
 npm test
 npm run build
 ```
