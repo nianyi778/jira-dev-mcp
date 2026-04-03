@@ -17,8 +17,9 @@ A local MCP server for Jira Cloud-driven development. Connects Claude Code, Open
 - OAuth 2.0 (3LO) browser-based login — no manual token management
 - Auto-refresh OAuth tokens before expiry
 - Post comments on Jira issues with clickable URL response
-- Manual confirmation by default before posting comments, with optional auto-send mode
+- Token-only comment confirmation: confirm pending comments with just the token, no need to re-send body
 - Edit existing comments with the same confirmation flow
+- Batch download all attachments from an issue in a single call with optional MIME filter
 - Auto-retry on transient API errors (429/503) with Retry-After header support
 - Rich ADF parsing: code blocks, tables, mentions, links, panels, and more
 - Multi-paragraph and fenced code block support in posted comments
@@ -120,10 +121,11 @@ If an existing config file contains invalid JSON, `jira-dev setup` now fails wit
 |------|-------------|
 | `jira_search_issues` | Search by keywords or JQL |
 | `jira_read_task` | Read full issue details |
-| `jira_download_attachment` | Download and parse attachments |
+| `jira_download_attachment` | Download and parse a single attachment |
+| `jira_download_all_attachments` | Download all attachments in one call; optional MIME filter (e.g. `image/`) |
 | `jira_my_tasks` | List issues assigned to you |
-| `jira_add_comment` | Post a comment; returns clickable URL |
-| `jira_edit_comment` | Edit an existing comment; supports preview + confirm flow |
+| `jira_add_comment` | Post a comment; confirm with token only (no body re-send needed) |
+| `jira_edit_comment` | Edit an existing comment; same token-only confirm flow |
 | `jira_set_project_path` | Map a Jira project to a local repo path |
 | `jira_get_project_path` | Get the local path for a project |
 | `jira_analyze_task` | Full investigation workflow: reads issue + comments + attachments, selects type-aware template (Bug/Story/Task), and guides step-by-step through explore → plan → implement → post comment |
@@ -135,6 +137,10 @@ jira-dev status    # Show current auth mode, token state, and mapped projects
 jira-dev doctor    # Run environment and config health checks
 jira-dev upgrade   # Upgrade jira-dev-mcp from npm
 jira-dev setup     # Register jira-dev into supported MCP clients
+jira-dev read AT-123             # Read issue details from the terminal
+jira-dev comment AT-123 "Done"   # Post a comment directly (bypasses manual mode)
+jira-dev download AT-123         # Download all attachments
+jira-dev download AT-123 spec.xlsx  # Download a single attachment
 jira-dev config set-comment-mode manual   # Require confirmation before posting comments
 ```
 
@@ -172,10 +178,12 @@ Returns: description, subtasks, changelog, comments, attachment list, and the lo
 **Step 4 — Download attachments if needed**
 
 ```
+jira_download_all_attachments(key: "AT-123")
+jira_download_all_attachments(key: "AT-123", mime_filter: "image/")
 jira_download_attachment(key: "AT-123", filename: "spec.xlsx")
 ```
 
-CSV / XLSX / XLS / PDF are parsed and returned as structured text. Images are returned as base64 for the AI client to interpret.
+Use `jira_download_all_attachments` to grab everything in one call, or filter by MIME type. Use `jira_download_attachment` for a single file. CSV / XLSX / XLS / PDF are parsed and returned as structured text. Images are returned as base64.
 
 **Step 5 — AI implements the fix**
 

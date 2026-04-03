@@ -77,11 +77,12 @@ describe('createServer', () => {
     createServer();
 
     expect(mockServerCtor).toHaveBeenCalledWith({ name: 'jira-dev-mcp', version: expect.any(String) });
-    expect(mockRegisterTool).toHaveBeenCalledTimes(9);
+    expect(mockRegisterTool).toHaveBeenCalledTimes(10);
     expect(mockRegisterTool.mock.calls.map((call) => call[0])).toEqual([
       'jira_search_issues',
       'jira_read_task',
       'jira_download_attachment',
+      'jira_download_all_attachments',
       'jira_my_tasks',
       'jira_set_project_path',
       'jira_get_project_path',

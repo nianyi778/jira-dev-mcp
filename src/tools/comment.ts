@@ -6,16 +6,16 @@ import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/proto
 import type { ServerNotification, ServerRequest } from '@modelcontextprotocol/sdk/types.js';
 
 export const addCommentSchema = z.object({
-  key: z.string().describe('Jira issue key (e.g. AT-123)'),
-  body: z.string().describe('Comment text (plain text, will be wrapped in ADF paragraph)'),
-  confirm_token: z.string().optional().describe('Confirmation token returned by the preview step in manual mode'),
+  key: z.string().optional().describe('Jira issue key (e.g. AT-123). Required for new comments, optional when confirming with confirm_token.'),
+  body: z.string().optional().describe('Comment text (plain text, will be wrapped in ADF paragraph). Required for new comments, optional when confirming with confirm_token.'),
+  confirm_token: z.string().optional().describe('Confirmation token from preview step. When provided, key and body are optional — the pending comment content is used.'),
 });
 
 export const editCommentSchema = z.object({
-  key: z.string().describe('Jira issue key (e.g. AT-123)'),
-  commentId: z.string().describe('Existing Jira comment id'),
-  body: z.string().describe('Updated comment text (plain text, will be wrapped in ADF paragraph)'),
-  confirm_token: z.string().optional().describe('Confirmation token returned by the preview step in manual mode'),
+  key: z.string().optional().describe('Jira issue key (e.g. AT-123). Required for new edits, optional when confirming with confirm_token.'),
+  commentId: z.string().optional().describe('Existing Jira comment id. Required for new edits, optional when confirming with confirm_token.'),
+  body: z.string().optional().describe('Updated comment text (plain text, will be wrapped in ADF paragraph). Required for new edits, optional when confirming with confirm_token.'),
+  confirm_token: z.string().optional().describe('Confirmation token from preview step. When provided, key/commentId/body are optional — the pending content is used.'),
 });
 
 export async function handleAddComment(
@@ -23,17 +23,17 @@ export async function handleAddComment(
   extra?: RequestHandlerExtra<ServerRequest, ServerNotification>,
 ) {
   const { key: rawKey, body: rawBody, confirm_token } = addCommentSchema.parse(args);
-  const key = rawKey.trim().toUpperCase();
-  const body = rawBody.trim();
+  const key = rawKey?.trim().toUpperCase();
+  const body = rawBody?.trim();
 
-  if (!key || !body) {
-    throw new JiraValidationError('jira_add_comment requires key and body');
+  if (!confirm_token && (!key || !body)) {
+    throw new JiraValidationError('jira_add_comment requires key and body (or confirm_token to confirm a pending comment)');
   }
 
   const config = await loadResolvedConfig();
   ensureJiraCredentials(config);
 
-  return addCommentWithConfirmation(config, { key, body, confirmToken: confirm_token?.trim() }, extra?.sessionId);
+  return addCommentWithConfirmation(config, { key: key ?? '', body: body ?? '', confirmToken: confirm_token?.trim() }, extra?.sessionId);
 }
 
 export async function handleEditComment(
@@ -41,16 +41,16 @@ export async function handleEditComment(
   extra?: RequestHandlerExtra<ServerRequest, ServerNotification>,
 ) {
   const { key: rawKey, commentId: rawCommentId, body: rawBody, confirm_token } = editCommentSchema.parse(args);
-  const key = rawKey.trim().toUpperCase();
-  const commentId = rawCommentId.trim();
-  const body = rawBody.trim();
+  const key = rawKey?.trim().toUpperCase();
+  const commentId = rawCommentId?.trim();
+  const body = rawBody?.trim();
 
-  if (!key || !commentId || !body) {
-    throw new JiraValidationError('jira_edit_comment requires key, commentId, and body');
+  if (!confirm_token && (!key || !commentId || !body)) {
+    throw new JiraValidationError('jira_edit_comment requires key, commentId, and body (or confirm_token to confirm a pending edit)');
   }
 
   const config = await loadResolvedConfig();
   ensureJiraCredentials(config);
 
-  return editCommentWithConfirmation(config, { key, commentId, body, confirmToken: confirm_token?.trim() }, extra?.sessionId);
+  return editCommentWithConfirmation(config, { key: key ?? '', commentId: commentId ?? '', body: body ?? '', confirmToken: confirm_token?.trim() }, extra?.sessionId);
 }

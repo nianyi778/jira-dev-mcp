@@ -7,7 +7,7 @@ import { resolve, dirname } from 'node:path';
 import { realpathSync, readFileSync } from 'node:fs';
 import { handleJiraSearch, searchIssuesSchema } from './tools/search.js';
 import { handleReadTask, readTaskSchema } from './tools/read-task.js';
-import { handleDownloadAttachment, downloadAttachmentSchema } from './tools/attachment.js';
+import { handleDownloadAttachment, downloadAttachmentSchema, handleDownloadAllAttachments, downloadAllAttachmentsSchema } from './tools/attachment.js';
 import { handleMyTasks, myTasksSchema } from './tools/my-tasks.js';
 import { handleSetProjectPath, handleGetProjectPath, setProjectPathSchema, getProjectPathSchema } from './tools/project.js';
 import { handleAddComment, handleEditComment, addCommentSchema, editCommentSchema } from './tools/comment.js';
@@ -67,6 +67,15 @@ const TOOL_DEFINITIONS = [
     inputSchema: downloadAttachmentSchema.shape,
     handler: async (args: unknown) => {
       const result = await handleDownloadAttachment(args);
+      return textContent(result.text);
+    },
+  },
+  {
+    name: 'jira_download_all_attachments',
+    description: 'Download all attachments from a Jira issue in a single call. Optionally filter by MIME type (e.g. "image/" for images only). Returns all files with their content inline. Use this instead of multiple jira_download_attachment calls.',
+    inputSchema: downloadAllAttachmentsSchema.shape,
+    handler: async (args: unknown) => {
+      const result = await handleDownloadAllAttachments(args);
       return textContent(result.text);
     },
   },

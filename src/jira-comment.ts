@@ -220,17 +220,20 @@ export async function addCommentWithConfirmation(
     const pending = pendingCommentConfirmations.get(input.confirmToken);
     if (!pending || pending.expiresAt < Date.now()) {
       pendingCommentConfirmations.delete(input.confirmToken);
-      // Token expired or server restarted — generate a fresh preview
-      return createCommentPreview(input, contextKey, 'add');
+      if (input.key && input.body) {
+        return createCommentPreview(input, contextKey, 'add');
+      }
+      throw new Error('Confirmation token expired and no key/body provided to create a new preview.');
     }
 
-    const resolvedContextKey = buildContextKey(contextKey);
-    if (pending.action !== 'add' || pending.key !== input.key || pending.body !== input.body || pending.contextKey !== resolvedContextKey) {
+    if (pending.action !== 'add') {
       pendingCommentConfirmations.delete(input.confirmToken);
-      throw new Error('Confirmation token does not match the pending comment. The comment body or issue key may have changed. Please request a new preview.');
+      throw new Error('Confirmation token is for an edit, not an add. Please request a new preview.');
     }
 
+    // Token-only confirm: use the stored key/body from the pending preview
     pendingCommentConfirmations.delete(input.confirmToken);
+    input = { key: pending.key, body: pending.body };
   }
 
   const nextConfig = config.preferences.commentMode === 'manual'
@@ -258,23 +261,20 @@ export async function editCommentWithConfirmation(
     const pending = pendingCommentConfirmations.get(input.confirmToken);
     if (!pending || pending.expiresAt < Date.now()) {
       pendingCommentConfirmations.delete(input.confirmToken);
-      // Token expired or server restarted — generate a fresh preview
-      return createCommentPreview(input, contextKey, 'edit');
+      if (input.key && input.commentId && input.body) {
+        return createCommentPreview(input, contextKey, 'edit');
+      }
+      throw new Error('Confirmation token expired and no key/commentId/body provided to create a new preview.');
     }
 
-    const resolvedContextKey = buildContextKey(contextKey);
-    if (
-      pending.action !== 'edit'
-      || pending.key !== input.key
-      || pending.commentId !== input.commentId
-      || pending.body !== input.body
-      || pending.contextKey !== resolvedContextKey
-    ) {
+    if (pending.action !== 'edit') {
       pendingCommentConfirmations.delete(input.confirmToken);
-      throw new Error('Confirmation token does not match the pending edit. The comment body, issue key, or comment ID may have changed. Please request a new preview.');
+      throw new Error('Confirmation token is for an add, not an edit. Please request a new preview.');
     }
 
+    // Token-only confirm: use the stored key/commentId/body from the pending preview
     pendingCommentConfirmations.delete(input.confirmToken);
+    input = { key: pending.key, commentId: pending.commentId ?? '', body: pending.body };
   }
 
   const nextConfig = config.preferences.commentMode === 'manual'

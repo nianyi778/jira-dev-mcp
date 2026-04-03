@@ -34,6 +34,9 @@ Commands:
   setup               Register this MCP server with Claude Code / OpenCode
   config set-path     Map a Jira project key to a local repo path
   config set-comment-mode  Set comment confirmation mode (manual|auto)
+  read <KEY>          Read a Jira issue and print details
+  comment <KEY> <TEXT> Post a comment on a Jira issue (bypasses manual mode)
+  download <KEY> [FILE] Download attachment(s) from a Jira issue
 
 Options:
   -v, --version       Show version number
@@ -42,12 +45,11 @@ Options:
 Examples:
   jira-dev server
   jira-dev login
-  jira-dev status
-  jira-dev doctor
-  jira-dev upgrade
-  jira-dev setup
+  jira-dev read AT-1338
+  jira-dev comment AT-1338 "Analysis complete"
+  jira-dev download AT-1338
+  jira-dev download AT-1338 image1.png
   jira-dev config set-path AT /path/to/your/repo
-  jira-dev config set-comment-mode manual
 `;
 
 const COMMAND_HELP: Record<string, string> = {
@@ -78,6 +80,28 @@ Usage: jira-dev config <subcommand>
 Subcommands:
   set-path <PROJECT_KEY> <LOCAL_PATH>   Map a Jira project to a local directory
   set-comment-mode <manual|auto>        Set comment confirmation behavior
+`,
+  read: `
+Usage: jira-dev read <ISSUE_KEY>
+
+Read a Jira issue and print its details (markdown format).
+Example: jira-dev read AT-1338
+`,
+  comment: `
+Usage: jira-dev comment <ISSUE_KEY> <TEXT>
+
+Post a comment on a Jira issue. Always posts directly (bypasses manual mode).
+Example: jira-dev comment AT-1338 "Fix deployed to staging"
+`,
+  download: `
+Usage: jira-dev download <ISSUE_KEY> [FILENAME]
+
+Download attachment(s) from a Jira issue.
+  Without filename: downloads all attachments and prints summary.
+  With filename: downloads a single file.
+Example:
+  jira-dev download AT-1338
+  jira-dev download AT-1338 image1.png
 `,
 };
 
@@ -280,6 +304,57 @@ export async function cmdConfigSetCommentMode(args: string[]): Promise<void> {
   console.log(`Saved to ${CONFIG_PATH}`);
 }
 
+export async function cmdRead(args: string[]): Promise<void> {
+  const [issueKey] = args;
+  if (!issueKey) {
+    console.error('Usage: jira-dev read <ISSUE_KEY>');
+    process.exit(1);
+  }
+  const { handleReadTask } = await import('./tools/read-task.js');
+  const result = await handleReadTask({ key: issueKey.trim().toUpperCase(), response_format: 'markdown' });
+  console.log(result.text);
+}
+
+export async function cmdComment(args: string[]): Promise<void> {
+  const [issueKey, ...bodyParts] = args;
+  const body = bodyParts.join(' ');
+  if (!issueKey || !body) {
+    console.error('Usage: jira-dev comment <ISSUE_KEY> <TEXT>');
+    process.exit(1);
+  }
+  const { ensureJiraCredentials, loadResolvedConfig } = await import('./config.js');
+  const { addComment } = await import('./jira-client.js');
+  const config = await loadResolvedConfig();
+  ensureJiraCredentials(config);
+  const autoConfig = { ...config, preferences: { ...config.preferences, commentMode: 'auto' as const } };
+  const result = await addComment(autoConfig, { key: issueKey.trim().toUpperCase(), body });
+  if (result.posted) {
+    console.log(`Comment posted: ${result.url}`);
+  } else {
+    console.error('Failed to post comment.');
+    process.exit(1);
+  }
+}
+
+export async function cmdDownload(args: string[]): Promise<void> {
+  const [issueKey, filename] = args;
+  if (!issueKey) {
+    console.error('Usage: jira-dev download <ISSUE_KEY> [FILENAME]');
+    process.exit(1);
+  }
+  const key = issueKey.trim().toUpperCase();
+
+  if (filename) {
+    const { handleDownloadAttachment } = await import('./tools/attachment.js');
+    const result = await handleDownloadAttachment({ key, filename: filename.trim(), response_format: 'markdown' });
+    console.log(result.text);
+  } else {
+    const { handleDownloadAllAttachments } = await import('./tools/attachment.js');
+    const result = await handleDownloadAllAttachments({ key, response_format: 'markdown' });
+    console.log(result.text);
+  }
+}
+
 export async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
     args: process.argv.slice(2),
@@ -341,6 +416,18 @@ export async function main(): Promise<void> {
       } else {
         console.log(COMMAND_HELP['config']);
       }
+      break;
+    }
+    case 'read': {
+      await cmdRead(rest);
+      break;
+    }
+    case 'comment': {
+      await cmdComment(rest);
+      break;
+    }
+    case 'download': {
+      await cmdDownload(rest);
       break;
     }
     default: {
