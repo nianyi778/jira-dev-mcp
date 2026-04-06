@@ -3,9 +3,10 @@ import { ensureJiraCredentials, getProjectPath, inferProjectKey, loadResolvedCon
 import { formatIssueDetail } from '../format.js';
 import { readIssue } from '../jira-client.js';
 import { JiraValidationError } from '../errors.js';
+import { parseIssueKey } from './analyze-task.js';
 
 export const readTaskSchema = z.object({
-  key: z.string().describe('Jira issue key (e.g. AT-123)'),
+  input: z.string().describe('Jira issue key or full browse URL (e.g. AT-123 or https://xxx.atlassian.net/browse/AT-123)'),
   includeComments: z.boolean().optional().describe('Include comments (default false)'),
   commentStartAt: z.number().int().min(0).optional().describe('Comment pagination offset'),
   commentMaxResults: z.number().int().min(1).max(50).optional().describe('Max comments (1-50, default 20)'),
@@ -15,11 +16,12 @@ export const readTaskSchema = z.object({
 });
 
 export async function handleReadTask(args: unknown) {
-  const { key: rawKey, includeComments, commentStartAt, commentMaxResults, changelogStartAt, changelogMaxResults, response_format } = readTaskSchema.parse(args);
-  const key = rawKey.trim().toUpperCase();
-  if (!key) {
-    throw new JiraValidationError('jira_read_task requires key');
+  const { input, includeComments, commentStartAt, commentMaxResults, changelogStartAt, changelogMaxResults, response_format } = readTaskSchema.parse(args);
+  const trimmed = input.trim();
+  if (!trimmed) {
+    throw new JiraValidationError('jira_read_task requires input');
   }
+  const key = parseIssueKey(trimmed);
 
   const config = await loadResolvedConfig();
   ensureJiraCredentials(config);

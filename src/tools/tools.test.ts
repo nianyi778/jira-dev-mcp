@@ -114,7 +114,7 @@ describe('tool handlers', () => {
     });
 
     const { handleReadTask } = await import('./read-task.js');
-    const result = await handleReadTask({ key: 'AT-101', response_format: 'markdown' });
+    const result = await handleReadTask({ input: 'AT-101', response_format: 'markdown' });
 
     expect(mockReadIssue).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ key: 'AT-101' }));
     expect(result.data.project.localPath).toBe('/tmp/backend');
