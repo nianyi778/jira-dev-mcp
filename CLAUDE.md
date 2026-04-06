@@ -26,7 +26,7 @@ Always respond in Chinese (中文) in this project.
 
 - Use `jira_read_task` to fetch the full task content.
 - Read **every field without exception**: description, comments, linked issues.
-- Use `jira_download_attachment` to download and read **every attachment** in the task. No attachment may be skipped.
+- Use `jira_download_all_attachments` to download **all attachments** at once. No attachment may be skipped.
 - Do not proceed until the entire task — including all attachments — is fully read and understood.
 
 ### Step 2 — Sync to latest code (mandatory, before reading any code)
