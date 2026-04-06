@@ -282,7 +282,10 @@ export async function editCommentWithConfirmation(
 
     // Token-only confirm: use the stored key/commentId/body from the pending preview
     pendingCommentConfirmations.delete(input.confirmToken);
-    input = { key: pending.key, commentId: pending.commentId ?? '', body: pending.body };
+    if (!pending.commentId) {
+      throw new Error('Internal error: edit token is missing commentId.');
+    }
+    input = { key: pending.key, commentId: pending.commentId, body: pending.body };
   }
 
   const nextConfig = config.preferences.commentMode === 'manual'

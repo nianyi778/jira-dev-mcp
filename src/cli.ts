@@ -311,7 +311,7 @@ export async function cmdRead(args: string[]): Promise<void> {
     process.exit(1);
   }
   const { handleReadTask } = await import('./tools/read-task.js');
-  const result = await handleReadTask({ key: issueKey.trim().toUpperCase(), response_format: 'markdown' });
+  const result = await handleReadTask({ input: issueKey.trim().toUpperCase(), response_format: 'markdown' });
   console.log(result.text);
 }
 
