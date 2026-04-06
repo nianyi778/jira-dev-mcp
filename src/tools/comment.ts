@@ -5,18 +5,28 @@ import { JiraValidationError } from '../errors.js';
 import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
 import type { ServerNotification, ServerRequest } from '@modelcontextprotocol/sdk/types.js';
 
-export const addCommentSchema = z.object({
+const _addCommentBase = z.object({
   key: z.string().optional().describe('Jira issue key (e.g. AT-123). Required for new comments, optional when confirming with confirm_token.'),
   body: z.string().optional().describe('Comment text (plain text, will be wrapped in ADF paragraph). Required for new comments, optional when confirming with confirm_token.'),
   confirm_token: z.string().optional().describe('Confirmation token from preview step. When provided, key and body are optional — the pending comment content is used.'),
 });
+export const addCommentSchema = _addCommentBase.refine(
+  (d) => d.confirm_token || (d.key && d.body),
+  { message: 'jira_add_comment requires key and body (or confirm_token to confirm a pending comment)' },
+);
+export const addCommentSchemaShape = _addCommentBase.shape;
 
-export const editCommentSchema = z.object({
+const _editCommentBase = z.object({
   key: z.string().optional().describe('Jira issue key (e.g. AT-123). Required for new edits, optional when confirming with confirm_token.'),
   commentId: z.string().optional().describe('Existing Jira comment id. Required for new edits, optional when confirming with confirm_token.'),
   body: z.string().optional().describe('Updated comment text (plain text, will be wrapped in ADF paragraph). Required for new edits, optional when confirming with confirm_token.'),
   confirm_token: z.string().optional().describe('Confirmation token from preview step. When provided, key/commentId/body are optional — the pending content is used.'),
 });
+export const editCommentSchema = _editCommentBase.refine(
+  (d) => d.confirm_token || (d.key && d.commentId && d.body),
+  { message: 'jira_edit_comment requires key, commentId, and body (or confirm_token to confirm a pending edit)' },
+);
+export const editCommentSchemaShape = _editCommentBase.shape;
 
 export async function handleAddComment(
   args: unknown,

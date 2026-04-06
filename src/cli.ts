@@ -384,7 +384,8 @@ export async function main(): Promise<void> {
 
   switch (command) {
     case 'server': {
-      await import('./index.js');
+      const { main: startServer } = await import('./index.js');
+      await startServer();
       break;
     }
     case 'login': {

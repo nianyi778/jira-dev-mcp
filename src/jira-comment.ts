@@ -212,6 +212,10 @@ export async function addCommentWithConfirmation(
   input: AddCommentInput,
   contextKey?: string,
 ): Promise<AddCommentResult> {
+  if (config.preferences.commentMode !== 'manual' && input.confirmToken && (!input.key || !input.body)) {
+    throw new Error('confirm_token は manual モード専用です。auto モードでは key と body を直接指定してください。');
+  }
+
   if (config.preferences.commentMode === 'manual') {
     if (!input.confirmToken) {
       return createCommentPreview(input, contextKey, 'add');
@@ -253,6 +257,10 @@ export async function editCommentWithConfirmation(
   input: EditCommentInput,
   contextKey?: string,
 ): Promise<AddCommentResult> {
+  if (config.preferences.commentMode !== 'manual' && input.confirmToken && (!input.key || !input.commentId || !input.body)) {
+    throw new Error('confirm_token は manual モード専用です。auto モードでは key・commentId・body を直接指定してください。');
+  }
+
   if (config.preferences.commentMode === 'manual') {
     if (!input.confirmToken) {
       return createCommentPreview(input, contextKey, 'edit');

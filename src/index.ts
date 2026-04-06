@@ -10,7 +10,7 @@ import { handleReadTask, readTaskSchema } from './tools/read-task.js';
 import { handleDownloadAttachment, downloadAttachmentSchema, handleDownloadAllAttachments, downloadAllAttachmentsSchema } from './tools/attachment.js';
 import { handleMyTasks, myTasksSchema } from './tools/my-tasks.js';
 import { handleSetProjectPath, handleGetProjectPath, setProjectPathSchema, getProjectPathSchema } from './tools/project.js';
-import { handleAddComment, handleEditComment, addCommentSchema, editCommentSchema } from './tools/comment.js';
+import { handleAddComment, handleEditComment, addCommentSchemaShape, editCommentSchemaShape } from './tools/comment.js';
 import { handleAnalyzeTask, analyzeTaskSchema } from './tools/analyze-task.js';
 
 let _pkgVersion = '0.0.0';
@@ -109,7 +109,7 @@ const TOOL_DEFINITIONS = [
   {
     name: 'jira_add_comment',
     description: 'Post a comment on a Jira issue. Returns the comment URL so you can verify it directly.',
-    inputSchema: addCommentSchema.shape,
+    inputSchema: addCommentSchemaShape,
     handler: async (args: unknown, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
       const result = await handleAddComment(args, extra);
       if (!result.posted) {
@@ -121,7 +121,7 @@ const TOOL_DEFINITIONS = [
   {
     name: 'jira_edit_comment',
     description: 'Edit an existing Jira comment. In manual mode, returns a preview first and requires confirm_token to apply the update.',
-    inputSchema: editCommentSchema.shape,
+    inputSchema: editCommentSchemaShape,
     handler: async (args: unknown, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
       const result = await handleEditComment(args, extra);
       if (!result.posted) {
